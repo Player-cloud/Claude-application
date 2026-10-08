@@ -1,0 +1,51 @@
+{
+  "name": "my-toolkit",
+  "owner": {
+    "name": "Joshua Oduore"
+  },
+  "metadata": {
+    "description": "Personal Claude Code toolkit: secret protection, context and usage forecast, pipeline control panel, deploy status, Cowork handoff and a skill learner."
+  },
+  "plugins": [
+    {
+      "name": "control-center",
+      "source": "./plugins/control-center",
+      "description": "The Claude Code Control Center: one pane over every skill, plugin, workflow and system module, with live status and one-click runs through Claude Code's own commands."
+    },
+    {
+      "name": "secret-shield",
+      "source": "./plugins/secret-shield",
+      "description": "Swaps passwords, keys and database URLs in your messages for named placeholders before Claude sees them, stores the values outside your projects, and reveals them on hover."
+    },
+    {
+      "name": "token-weather",
+      "source": "./plugins/token-weather",
+      "description": "A live forecast of the context window, shown in the band above the prompt."
+    },
+    {
+      "name": "control-panel",
+      "source": "./plugins/control-panel",
+      "description": "A pane with the work pipeline (Brief, Plan, Build, Review, Ship, Report) as one-click buttons, and a search over every skill and command."
+    },
+    {
+      "name": "deploy-status",
+      "source": "./plugins/deploy-status",
+      "description": "Shows the project's latest Vercel production and preview deployments in the status line, read from GitHub; /deploy-status lists them with links."
+    },
+    {
+      "name": "handoff",
+      "source": "./plugins/handoff",
+      "description": "Picks up the plan Cowork hands over in .claude/handoff.md: announces it when a session opens and gives it to Claude with the first message."
+    },
+    {
+      "name": "learner",
+      "source": "./plugins/learner",
+      "description": "Finds tasks you keep asking Claude for and proposes a skill for each, plus lessons from one project worth sharing with all; nothing is added without your approval."
+    },
+    {
+      "name": "nudges",
+      "source": "./plugins/nudges",
+      "description": "Suggests the right command at the right moment above the prompt, with a one-click Run: ship-check after a commit or push, next-part on a clean project, finishing old uncommitted work, and the manager update on Friday afternoons."
+    }
+  ]
+}

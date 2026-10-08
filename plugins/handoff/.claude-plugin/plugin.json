@@ -1,0 +1,8 @@
+{
+  "name": "handoff",
+  "version": "1.2.0",
+  "description": "Picks up the plan Cowork hands over in .claude/handoff.md: announces it when a session opens and gives it to Claude with the first message.",
+  "author": {
+    "name": "Joshua Oduore"
+  }
+}
