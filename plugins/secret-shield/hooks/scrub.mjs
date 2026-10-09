@@ -13,9 +13,13 @@
 // running session is still writing them. --exclude <sessionId> skips one
 // session outright. --dry-run reports without writing.
 //
+// --prune-backups instead deletes those backups (they hold the unredacted
+// originals), nothing else, and exits; with --dry-run it only counts them.
+//
 // Usage: node --no-warnings --experimental-strip-types scrub.mjs [--dry-run] [--min-age N] [--exclude ID]
+//        node --no-warnings --experimental-strip-types scrub.mjs --prune-backups [--dry-run]
 
-import { readFileSync, writeFileSync, renameSync, mkdirSync, readdirSync, statSync, existsSync, copyFileSync } from 'node:fs'
+import { readFileSync, writeFileSync, renameSync, mkdirSync, readdirSync, statSync, existsSync, copyFileSync, rmSync } from 'node:fs'
 import { join, dirname, relative, basename } from 'node:path'
 import { homedir } from 'node:os'
 import { findSecrets, parseEnv, envLine, assignNames } from './detect.ts'
@@ -126,6 +130,17 @@ function writeScrubbed(file, text) {
   const temp = `${file}.secret-shield.tmp`
   writeFileSync(temp, text)
   renameSync(temp, file)
+}
+
+if (flag('--prune-backups')) {
+  const files = walk(BACKUP_DIR, n => n.endsWith('.bak'))
+  let bytes = 0
+  for (const file of files) {
+    bytes += statSync(file).size
+    if (!dryRun) rmSync(file)
+  }
+  console.log(JSON.stringify({ prune: true, dryRun, prunedFiles: files.length, prunedBytes: bytes }))
+  process.exit(0)
 }
 
 loadVaults()

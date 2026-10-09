@@ -1,8 +1,16 @@
 {
   "name": "secret-shield",
-  "version": "1.3.0",
-  "description": "Swaps passwords, keys and database URLs in your messages for named placeholders before Claude sees them, stores the values outside your projects, and reveals them on hover.",
+  "version": "1.4.0",
+  "description": "Swaps passwords, keys and database URLs in your messages for named placeholders before Claude sees them and stores the values outside your projects. Showing a value on hover is opt-in.",
   "types": "./types/index.d.ts",
+  "userConfig": {
+    "revealOnHover": {
+      "type": "boolean",
+      "title": "Reveal secrets on hover",
+      "description": "Show a hidden secret's real value when you hover its placeholder in the expanded view (ctrl+o). Off keeps values out of the screen entirely.",
+      "default": false
+    }
+  },
   "author": {
     "name": "Joshua Oduore"
   }

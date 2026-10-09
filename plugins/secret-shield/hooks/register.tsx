@@ -90,12 +90,28 @@ function describe(s: ScrubSummary): string {
   return `secret-shield ${verb} ${s.replacements} secret copies in ${s.filesChanged} files${found}.`
 }
 
-export const register: Register = on => {
+type PruneSummary = { dryRun: boolean; prunedFiles: number; prunedBytes: number }
+
+// Deletes the scrubber's backups: unredacted copies of every file it changed.
+async function prune($: any, dry: boolean): Promise<PruneSummary> {
+  const script = `${$.plugin.root}/hooks/scrub.mjs`
+  const run = await $.process.run(
+    ['node', '--no-warnings', '--experimental-strip-types', script, '--prune-backups', ...(dry ? ['--dry-run'] : [])],
+    { timeoutMs: 120_000 },
+  )
+  if (run.exitCode !== 0) throw new Error(run.stderr.trim().split('\n').pop() || `scrubber exited ${run.exitCode}`)
+  return JSON.parse(run.stdout.trim().split('\n').pop()!)
+}
+
+export const register: Register = (on, options) => {
+  // Showing a secret's value on hover is opt-in: /config → secret-shield → "Reveal secrets on hover".
+  const revealOnHover = options.revealOnHover === true
+
   on('session.start', async ($, e, next) => {
     const result = await next(e)
     await $.command.register({
       name: 'scrub-secrets',
-      description: 'Replace secrets in old Claude Code transcripts with placeholders (add "dry" to preview)',
+      description: 'Replace secrets in old Claude Code transcripts with placeholders ("dry" previews; "prune" deletes the unredacted backups)',
     })
     void publish($).catch(() => {})
     // In the background: a slow scrub must not hold up the session.
@@ -110,12 +126,26 @@ export const register: Register = on => {
 
   on('command.run', { command: 'scrub-secrets' }, async ($, e) => {
     const dry = /\bdry\b/i.test(e.args)
+    if (/\bprune\b/i.test(e.args)) {
+      try {
+        const s = await prune($, dry)
+        const size = `${(s.prunedBytes / 1_000_000).toFixed(1)} MB`
+        if (s.prunedFiles === 0) return { text: 'secret-shield: there are no transcript backups to delete.' }
+        return {
+          text: dry
+            ? `secret-shield would delete ${s.prunedFiles} transcript backups (${size}). They are unredacted copies of the files it scrubbed. Run /scrub-secrets prune to delete them.`
+            : `secret-shield deleted ${s.prunedFiles} transcript backups (${size}). The scrubbed transcripts themselves are unchanged.`,
+        }
+      } catch (err) {
+        return { text: `secret-shield could not delete the backups: ${(err as Error).message}` }
+      }
+    }
     try {
       const s = await scrub($, dry ? ['--dry-run'] : [])
       await publish($, s)
       const lines = [describe(s), ...s.files.map(f => `  ${f}`)]
       if (s.skippedBusy) lines.push(`Skipped ${s.skippedBusy} transcripts changed in the last 10 minutes (sessions still running).`)
-      if (!dry && s.filesChanged) lines.push('Backups of changed files are in ~/.claude/secret-shield/backups/.')
+      if (!dry && s.filesChanged) lines.push('Unredacted backups of changed files are in ~/.claude/secret-shield/backups/. Delete them with /scrub-secrets prune once you are happy.')
       return { text: lines.join('\n') }
     } catch (err) {
       return { text: `secret-shield scrub failed: ${(err as Error).message}` }
@@ -162,7 +192,8 @@ export const register: Register = on => {
     const names = [...new Set([...text.matchAll(PLACEHOLDER)].map(m => m[1]))]
     if (names.length === 0 || !e.props.isExpanded) return next(e)
 
-    const vault = await readVault($, await vaultPath($))
+    // Without the opt-in the vault is never read here, so no value enters the drawing at all.
+    const vault = revealOnHover ? await readVault($, await vaultPath($)) : null
     const { Box, Text } = $.ui.resolve(e)
 
     const parts: any[] = []
@@ -182,6 +213,14 @@ export const register: Register = on => {
       <Box flexDirection="column">
         <Text>{parts}</Text>
         {names.map(name => {
+          if (!vault) {
+            return (
+              <Box key={`secret-${name}`} flexDirection="row" gap={1}>
+                <Text dimColor>🔒 {name}</Text>
+                <Text dimColor>•••••••• kept in the vault (hover reveal is off in /config)</Text>
+              </Box>
+            )
+          }
           const value = vault.get(name)
           return (
             <Box key={`secret-${name}`} flexDirection="row" gap={1}>
