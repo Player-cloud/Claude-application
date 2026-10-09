@@ -20,6 +20,14 @@ const PUSH = /\bgit\s+(?:-C\s+\S+\s+)?push\b/
 const SHIP_WORDS = /\b(deploy|ship it|ready to (?:ship|deploy|go live)|go live|push (?:it )?live|preview link)\b/i
 const PLAN_DOC = /plan|roadmap|checkpoint|milestone/i
 
+// Shown in the confirm step before a suggested command runs.
+const RUN = 'Run it'
+const WHAT_HAPPENS: Record<string, string> = {
+  'ship-check': 'It runs the build, test and migration checks, then asks before deploying anything.',
+  'next-part': 'It plans the next part for your approval before changing any code.',
+  'manager-update': 'It drafts your update as a document. Nothing is sent.',
+}
+
 const today = (ms: number) => new Date(ms).toISOString().slice(0, 10)
 
 async function isSnoozed($: any, id: string): Promise<boolean> {
@@ -167,6 +175,10 @@ export const register: Register = on => {
             label={`Run /${s.command}`}
             variant="primary"
             onPress={async () => {
+              // These commands build, deploy or write documents: say what happens and ask first.
+              // Closing the dialog rejects; that counts as "not yet".
+              const answer = await $.ui.ask(`Run /${s.command} now? ${WHAT_HAPPENS[s.command] ?? ''}`.trim(), [RUN, 'Not yet']).catch(() => null)
+              if (answer !== RUN) return
               // This plugin doesn't see its own command go by, so settle it here.
               await clear($)
               await $.command.run({ command: s.command, args: '' })
