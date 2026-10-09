@@ -5,7 +5,8 @@ import type { DeployInfo } from '../types'
 
 // Shows the project's latest Vercel deployments in the status line, read from
 // GitHub, where Vercel's Git integration records every deployment. Needs no
-// Vercel login: a public GitHub repository is enough.
+// Vercel login: the GitHub CLI's sign-in covers private repos, and a public
+// repository needs nothing at all.
 
 const EVERY_MS = 5 * 60_000
 const AFTER_PUSH_MS = 90_000
@@ -38,7 +39,11 @@ async function sh($: any, argv: string[]): Promise<string | null> {
   return run.exitCode === 0 ? run.stdout.trim() : null
 }
 
+// The GitHub CLI first: it carries the person's own sign-in, so private repos work. Without
+// it (not installed, or signed out), the anonymous API, which only sees public repos.
 async function github($: any, path: string): Promise<any> {
+  const viaGh = await sh($, ['gh', 'api', path.replace(/^\//, '')]).catch(() => null)
+  if (viaGh) return JSON.parse(viaGh)
   const body = await sh($, ['curl', '-s', '-f', '-H', 'Accept: application/vnd.github+json', `https://api.github.com${path}`])
   return body ? JSON.parse(body) : null
 }
@@ -70,7 +75,8 @@ async function refresh($: any): Promise<void> {
     const list: Deployment[] | null = await github($, `/repos/${repo}/deployments?per_page=30`)
     if (!list || list.length === 0) {
       rows = []
-      $.ui.status(undefined)
+      // No answer at all (not an empty list) usually means a private repo and no gh sign-in.
+      $.ui.status(list === null ? '▲ deploys hidden: private repo needs gh auth login' : undefined)
       const empty: DeployInfo = { repo, rows: [], headDeployed: null, checkedAt: await $.clock.now() }
       await update($, info, () => empty)
       return

@@ -1,7 +1,7 @@
 {
   "name": "deploy-status",
-  "version": "1.3.0",
-  "description": "Shows the project's latest Vercel production and preview deployments in the status line, read from GitHub; /deploy-status lists them with links.",
+  "version": "1.4.0",
+  "description": "Shows the project's latest Vercel production and preview deployments in the status line, read from GitHub (through the GitHub CLI for private repos); /deploy-status lists them with links.",
   "types": "./types/index.d.ts",
   "author": {
     "name": "Joshua Oduore"
