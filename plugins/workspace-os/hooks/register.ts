@@ -292,7 +292,7 @@ export const register: Register = (on, options) => {
     if (!dir || !real) return { result: noVault(dir) }
     const input = e as unknown as { title?: unknown; text?: unknown }
     const name = draftName(input.title)
-    if (!name) return { result: 'That title can\'t be a file name: avoid / \\ : * ? " < > | and "..".' }
+    if (!name) return { result: 'That title can\'t be a file name: avoid / \\ : * ? " < > | and titles made only of dots.' }
     const text = typeof input.text === 'string' ? input.text : ''
     if (!text.trim()) return { result: 'The draft has no text.' }
     if (hasSecret(text)) return { result: 'The draft contains what looks like a secret (a key, token or password). Remove it and try again.' }

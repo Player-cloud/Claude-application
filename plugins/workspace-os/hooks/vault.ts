@@ -93,11 +93,12 @@ export function versionOf(text: string): string {
 }
 
 // A draft's file name from its title, or null for one that could name another place:
-// no slashes, drive or reserved characters, no .. and nothing empty.
+// no slashes, drive or reserved characters, not only dots, and nothing empty. (A ".." can't
+// climb out without a slash, so "Ideas..later" is a fine title.)
 export function draftName(title: unknown): string | null {
   if (typeof title !== 'string') return null
   const t = title.trim().replace(/\.md$/i, '').trim()
-  if (!t || t.length > 120 || t.includes('..') || /[\\/:*?"<>|\x00-\x1f]/.test(t) || /^\.+$/.test(t)) return null
+  if (!t || t.length > 120 || /[\\/:*?"<>|\x00-\x1f]/.test(t) || /^\.+$/.test(t)) return null
   return t
 }
 
