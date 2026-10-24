@@ -40,11 +40,23 @@ export function score(relPath: string, text: string, query: string): number {
   return total
 }
 
-// The first line that holds a query word, trimmed to one line of context.
+// The line that holds the most query words, trimmed to one line of context. A heading
+// only repeats the note's name, so on a tie a plain line wins.
 export function excerpt(text: string, query: string): string {
   const words = query.toLowerCase().split(/\s+/).filter(Boolean)
-  const line = text.split(/\r?\n/).find(l => words.some(w => l.toLowerCase().includes(w))) ?? ''
-  const t = line.trim()
+  let best = ''
+  let bestScore = 0
+  for (const line of text.split(/\r?\n/)) {
+    const lower = line.toLowerCase()
+    const hits = words.filter(w => lower.includes(w)).length
+    if (hits === 0) continue
+    const s = hits * 2 + (line.trimStart().startsWith('#') ? 0 : 1)
+    if (s > bestScore) {
+      best = line
+      bestScore = s
+    }
+  }
+  const t = best.trim()
   return t.length > 160 ? `${t.slice(0, 157)}...` : t
 }
 
