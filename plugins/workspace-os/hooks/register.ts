@@ -141,8 +141,7 @@ export const register: Register = (on, options) => {
     const isDefault = words[0]?.toLowerCase() === 'default'
     const name = (isDefault ? words.slice(1) : words).join(' ')
     if (!name) {
-      const mode = currentMode()
-      return { text: `Mode: ${mode ? MODES[mode].label : 'none'}. ${MODE_HELP}` }
+      return { text: `${statusText()}\n${MODE_HELP}` }
     }
     const mode = modeFromName(name)
     if (!mode) return { text: `workspace-os: "${name}" isn't a mode. ${MODE_HELP}` }
@@ -156,8 +155,8 @@ export const register: Register = (on, options) => {
     $.ui.status(statusText())
     return {
       text: isDefault
-        ? `Mode: ${MODES[mode].label}, now the default for this folder (from your next message).`
-        : `Mode: ${MODES[mode].label} for this session (from your next message).`,
+        ? `${statusText()}\nNow the default for this folder, from your next message.`
+        : `${statusText()}\nFor this session, from your next message.`,
     }
   })
 

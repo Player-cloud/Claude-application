@@ -77,7 +77,7 @@ test('with no profile there is no mode, and /mode says why', { options: ROOTS },
 test('/mode changes the mode from the next message, one mode at a time', { options: ROOTS }, async ($, on) => {
   const seen = engine(on, 'personal')
   await start($, PERSONAL_APP)
-  expect(await mode($, 'tutor')).toContain('Tutor for this session')
+  expect(await mode($, 'tutor')).toContain('Personal · Tutor\nFor this session')
   const text = await prompt($)
   expect(text).toContain('Mode: Tutor.')
   expect(modesIn(text)).toBe(1)
@@ -93,11 +93,11 @@ test('mode names are forgiving; an unknown one changes nothing', { options: ROOT
   expect(await prompt($)).toContain('Mode: Review mine.')
 })
 
-test('/mode on its own shows the current mode and the choices', { options: ROOTS }, async ($, on) => {
+test('/mode on its own shows profile, scratch and mode, and the choices', { options: ROOTS }, async ($, on) => {
   engine(on, 'personal')
   await start($, PERSONAL_APP)
   const text = await mode($, '')
-  expect(text).toContain('Mode: Build with me.')
+  expect(text).toContain('Personal · Build with me')
   expect(text).toContain('/mode default')
 })
 
@@ -106,7 +106,7 @@ test('/mode on its own shows the current mode and the choices', { options: ROOTS
 test('/mode default is remembered for that folder in a later session, and only there', { options: ROOTS }, async ($, on) => {
   const seen = engine(on, 'personal')
   await start($, PERSONAL_APP)
-  expect(await mode($, 'default review')).toContain('default for this folder')
+  expect(await mode($, 'default review')).toContain('Personal · Review mine\nNow the default for this folder')
   await start($, PERSONAL_APP)
   expect(await prompt($)).toContain('Mode: Review mine.')
   await start($, PERSONAL_OTHER)
