@@ -206,6 +206,6 @@ test('two dots inside a title are fine; only paths and all-dot titles are refuse
   const seen = engine(on, 'personal')
   await start($)
   expect(await call($, 'vault_draft', { title: 'Ideas..later', text: 'x' })).toBe('Draft saved to _inbox/Ideas..later.md.')
-  for (const title of ['..', '.', '../x', '..\x']) expect(await call($, 'vault_draft', { title, text: 'x' }), title).toContain('can\'t be a file name')
+  for (const title of ['..', '.', '../x', '..\\x']) expect(await call($, 'vault_draft', { title, text: 'x' }), title).toContain('can\'t be a file name')
   expect(seen.writes.length).toBe(1)
 })
