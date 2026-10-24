@@ -79,5 +79,34 @@ export function cleanRelative(path: unknown): string | null {
   return p.replace(/\/+$/, '')
 }
 
+// A short fingerprint of a note's text (FNV-1a, 64 bits as two halves). It only has to
+// change when the text changes, so an edit can tell the note moved on since it was read.
+export function versionOf(text: string): string {
+  let a = 0x811c9dc5
+  let b = 0x01000193 ^ text.length
+  for (let i = 0; i < text.length; i++) {
+    const c = text.charCodeAt(i)
+    a = Math.imul(a ^ c, 0x01000193) >>> 0
+    b = Math.imul(b ^ c, 0x5bd1e995) >>> 0
+  }
+  return a.toString(16).padStart(8, '0') + b.toString(16).padStart(8, '0')
+}
+
+// A draft's file name from its title, or null for one that could name another place:
+// no slashes, drive or reserved characters, no .. and nothing empty.
+export function draftName(title: unknown): string | null {
+  if (typeof title !== 'string') return null
+  const t = title.trim().replace(/\.md$/i, '').trim()
+  if (!t || t.length > 120 || t.includes('..') || /[\\/:*?"<>|\x00-\x1f]/.test(t) || /^\.+$/.test(t)) return null
+  return t
+}
+
+// How many times `piece` appears in `text`; an edit's old text must appear exactly once.
+export function countOf(text: string, piece: string): number {
+  return piece ? text.split(piece).length - 1 : 0
+}
+
+export const hasSecret = (text: string) => findSecrets(text).length > 0
+
 // Obsidian's own settings folder is never shown.
 export const isHidden = (relPath: string) => relPath.split('/').some(part => part.toLowerCase() === '.obsidian')
