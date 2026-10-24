@@ -82,11 +82,13 @@ export function findSecrets(text: string): Found[] {
   }
 
   for (const m of text.matchAll(ENV_LINE)) {
-    const [, key, value] = m
+    // Both groups are required, so they are always strings; ?? only tells the type checker.
+    const key = m[1] ?? ''
+    const value = m[2] ?? ''
     if (SECRET_NAME.test(key) || HAS_URL_CREDS.test(value)) add(key, value)
   }
-  for (const m of text.matchAll(JSON_KEY)) add(snake(m[1]), m[2])
-  for (const m of text.matchAll(URL_CREDS)) add(urlName(m[1]), m[0])
+  for (const m of text.matchAll(JSON_KEY)) add(snake(m[1] ?? ''), m[2] ?? '')
+  for (const m of text.matchAll(URL_CREDS)) add(urlName(m[1] ?? ''), m[0])
   // The password inside every credentialed URL found so far.
   for (const v of [...seen]) {
     const pw = /^[a-z][a-z0-9+.-]*:\/\/[^\s:/@]+:([^\s@/]{6,})@/i.exec(v)?.[1]
@@ -95,11 +97,12 @@ export function findSecrets(text: string): Found[] {
   for (const [re, name] of PREFIXED) for (const m of text.matchAll(re)) add(name, m[0])
   if (/password/i.test(text)) {
     for (const m of text.matchAll(EMAIL_ROW)) {
-      if (/[0-9]|[^A-Za-z0-9]/.test(m[2]) && !m[2].includes('@')) add(`PASSWORD_${snake(m[1])}`, m[2])
+      const [user, pw] = [m[1] ?? '', m[2] ?? '']
+      if (/[0-9]|[^A-Za-z0-9]/.test(pw) && !pw.includes('@')) add(`PASSWORD_${snake(user)}`, pw)
     }
   }
   // A phrase value must look like a password, not a word: "the password is incorrect".
-  for (const m of text.matchAll(PASSWORD_PHRASE)) if (/[0-9]|[^A-Za-z0-9]/.test(m[2])) add('PASSWORD', m[2])
+  for (const m of text.matchAll(PASSWORD_PHRASE)) if (/[0-9]|[^A-Za-z0-9]/.test(m[2] ?? '')) add('PASSWORD', m[2] ?? '')
   return found
 }
 
@@ -109,13 +112,13 @@ export function parseEnv(text: string): Map<string, string> {
   for (const line of text.split(/\r?\n/)) {
     const m = /^\s*(?:export\s+)?([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(.*)$/.exec(line)
     if (!m) continue
-    let value = m[2].trim()
+    let value = (m[2] ?? '').trim()
     if (value.startsWith('"') && value.endsWith('"') && value.length >= 2) {
       value = value.slice(1, -1).replace(/\\"/g, '"').replace(/\\\\/g, '\\')
     } else if (value.startsWith("'") && value.endsWith("'") && value.length >= 2) {
       value = value.slice(1, -1)
     }
-    vars.set(m[1], value)
+    vars.set(m[1] ?? '', value)
   }
   return vars
 }
