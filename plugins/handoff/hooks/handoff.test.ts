@@ -1,6 +1,6 @@
 import { expect, test } from 'claude-code/testing'
 
-const ROOT = 'C:/Users/Lapto/Downloads/basketball-platform'
+const ROOT = 'C:/Users/test/Downloads/basketball-platform'
 const HANDOFF = `---
 title: Live match scores
 status: open

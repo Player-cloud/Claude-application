@@ -26,7 +26,7 @@ function answer(argv: readonly string[]): string | null {
 
 test('lists the latest production and preview deployments', async ($, on) => {
   const statuses: (string | undefined)[] = []
-  on('session.root', () => ({ value: 'C:/Users/Lapto/Downloads/my-app' }))
+  on('session.root', () => ({ value: 'C:/Users/test/Downloads/my-app' }))
   on('clock.now', () => ({ value: NOW }))
   on('process.run', (_$, e) => {
     const out = answer(e.argv)
@@ -60,7 +60,7 @@ function privateRepo(argv: readonly string[]): string | null {
 }
 
 function withRunner(on: any, run: (argv: readonly string[]) => string | null, statuses: (string | undefined)[]) {
-  on('session.root', () => ({ value: 'C:/Users/Lapto/Downloads/my-app' }))
+  on('session.root', () => ({ value: 'C:/Users/test/Downloads/my-app' }))
   on('clock.now', () => ({ value: NOW }))
   on('process.run', (_$: any, e: any) => {
     const out = run(e.argv)

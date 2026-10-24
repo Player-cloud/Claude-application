@@ -1,6 +1,6 @@
 import { expect, test } from 'claude-code/testing'
 
-const ROOT = 'C:/Users/Lapto/Downloads/my-app'
+const ROOT = 'C:/Users/test/Downloads/my-app'
 const MONDAY_10AM = new Date(2026, 9, 5, 10, 0).getTime()
 const FRIDAY_4PM = new Date(2026, 9, 9, 16, 0).getTime()
 

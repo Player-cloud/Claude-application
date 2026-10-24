@@ -46,7 +46,7 @@ for (const surface of ['terminal', 'desktop'] as const) {
       store[e.key] = e.value
       return { value: undefined } as never
     })
-    on('env.get', () => ({ value: 'C:\\Users\\Lapto' }) as never)
+    on('env.get', () => ({ value: 'C:\\Users\\test' }) as never)
     on('clock.now', () => ({ value: Date.parse('2026-10-05T12:00:00Z') }) as never)
     on('fs.exists', (_$, e) => ({ value: n(e.path) in files }) as never)
     on('fs.read', (_$, e) => ({ value: files[n(e.path)] }) as never)
@@ -66,18 +66,18 @@ for (const surface of ['terminal', 'desktop'] as const) {
 
     // Approving writes the skill; skipping remembers the choice.
     await ui.press({ key: 'approve-skill:boss-email' })
-    const skill = files['C:/Users/Lapto/.claude/skills/boss-email/SKILL.md']
+    const skill = files['C:/Users/test/.claude/skills/boss-email/SKILL.md']
     expect(skill).toContain('name: boss-email')
     expect(skill).toContain('Summarise the work')
 
     await ui.press({ key: 'skip-lesson:one-build-at-a-time' })
     expect(store.skipped).toEqual(['lesson:one-build-at-a-time'])
-    expect(files['C:/Users/Lapto/.claude/CLAUDE.md']).toBeUndefined()
+    expect(files['C:/Users/test/.claude/CLAUDE.md']).toBeUndefined()
   })
 }
 
 test('sharing a lesson adds it under one heading in CLAUDE.md', async ($, on) => {
-  const files: Record<string, string> = { 'C:/Users/Lapto/.claude/CLAUDE.md': '# My notes\n' }
+  const files: Record<string, string> = { 'C:/Users/test/.claude/CLAUDE.md': '# My notes\n' }
   on('process.run', () => ({ value: { exitCode: 0, stdout: JSON.stringify(COLLECTED), stderr: '', isStdoutTruncated: false } }) as never)
   on('command.list', () => ({ value: [] }) as never)
   on('model.complete', (_$, e) =>
@@ -85,7 +85,7 @@ test('sharing a lesson adds it under one heading in CLAUDE.md', async ($, on) =>
   )
   on('store.get', () => ({ value: undefined }) as never)
   on('store.set', () => ({ value: undefined }) as never)
-  on('env.get', () => ({ value: 'C:/Users/Lapto' }) as never)
+  on('env.get', () => ({ value: 'C:/Users/test' }) as never)
   on('clock.now', () => ({ value: 0 }) as never)
   on('fs.exists', (_$, e) => ({ value: n(e.path) in files }) as never)
   on('fs.read', (_$, e) => ({ value: files[n(e.path)] }) as never)
@@ -99,7 +99,7 @@ test('sharing a lesson adds it under one heading in CLAUDE.md', async ($, on) =>
   await ui.press({ key: 'rescan' })
   await ui.press({ key: 'approve-lesson:one-build-at-a-time' })
 
-  const md = files['C:/Users/Lapto/.claude/CLAUDE.md']
+  const md = files['C:/Users/test/.claude/CLAUDE.md']
   expect(md).toContain('# My notes')
   expect(md).toContain('## Lessons from past projects\n- **One build at a time**')
   expect(md).toContain('(learned on basketball platform)')

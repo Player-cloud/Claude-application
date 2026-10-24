@@ -4,7 +4,7 @@ import { expect, test } from 'claude-code/testing'
 
 // Fixed clock; the stand-ins below repeat these numbers literally (each is compiled on its own).
 const NOW = 1791216000000
-const ROOT = 'C:/Users/Lapto/Downloads/basketball-platform'
+const ROOT = 'C:/Users/test/Downloads/basketball-platform'
 
 const PLUGIN_LIST = [
   ['feature-dev@claude-plugins-official', true],
