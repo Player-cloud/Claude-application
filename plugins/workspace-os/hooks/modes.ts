@@ -43,6 +43,16 @@ export function modeFromName(name: string): ModeId | null {
   return NAMES[name.trim().toLowerCase().replace(/\s+/g, '-')] ?? null
 }
 
+// The mode at the start of a /mode line, and whatever follows it. The longest match wins, so
+// 'build with me' is one mode and 'tutor write a parser' is Tutor plus the rest.
+export function modeAtStart(words: readonly string[]): { mode: ModeId | null; rest: string } {
+  for (let n = Math.min(4, words.length); n >= 1; n--) {
+    const mode = modeFromName(words.slice(0, n).join(' '))
+    if (mode) return { mode, rest: words.slice(n).join(' ') }
+  }
+  return { mode: null, rest: words.join(' ') }
+}
+
 export const SCRATCH_TEXT =
   'This is a scratch session for a one-off task: there is no project here. Keep any files in this folder, and if the task turns out to need a real project, say so.'
 

@@ -1,6 +1,6 @@
 import type { EngineInterface, Register } from 'claude-code'
 
-import { MODE_HELP, MODES, SCRATCH_TEXT, modeFromName, type ModeId } from './modes'
+import { MODE_HELP, MODES, SCRATCH_TEXT, modeAtStart, modeFromName, type ModeId } from './modes'
 import { isUnder, norm, parseRoots, pathsInCommand, resolve } from './paths'
 import { gateReason } from './rules'
 import { cleanRelative, excerpt, isHidden, isPrivate, linksTo, maskSecrets, noteName, score } from './vault'
@@ -298,15 +298,16 @@ export const register: Register = (on, options) => {
   })
 
   on('command.run', { command: 'mode' }, async ($, e) => {
-    if (!profile) return { text: 'workspace-os: modes need a profile. Start the session from the Personal or Work environment.' }
+    // Desktop already names the plugin above a command's output, so replies carry no prefix.
+    if (!profile) return { text: 'Modes need a profile. Start the session from the Personal or Work environment.' }
     const words = String(e.args ?? '').trim().split(/\s+/).filter(Boolean)
     const isDefault = words[0]?.toLowerCase() === 'default'
-    const name = (isDefault ? words.slice(1) : words).join(' ')
-    if (!name) {
+    const given = isDefault ? words.slice(1) : words
+    if (given.length === 0) {
       return { text: `${statusText()}\n${MODE_HELP}` }
     }
-    const mode = modeFromName(name)
-    if (!mode) return { text: `workspace-os: "${name}" isn't a mode. ${MODE_HELP}` }
+    const { mode, rest } = modeAtStart(given)
+    if (!mode) return { text: `"${given[0]}" isn't a mode. ${MODE_HELP}` }
     if (isDefault) {
       await $.store.set(storeKey(), mode)
       folderDefault = mode
@@ -315,11 +316,11 @@ export const register: Register = (on, options) => {
       sessionMode = mode
     }
     $.ui.status(statusText())
-    return {
-      text: isDefault
-        ? `${statusText()}\nNow the default for this folder, from your next message.`
-        : `${statusText()}\nFor this session, from your next message.`,
-    }
+    const applies = isDefault ? 'Now the default for this folder, from your next message.' : 'For this session, from your next message.'
+    // A command can't pass text on to Claude, so words after the mode are handed back as a
+    // reminder to send them as the next message.
+    const task = rest.length > 200 ? `${rest.slice(0, 197)}...` : rest
+    return { text: rest ? `${statusText()}\n${applies} Now send your task as a message: ${task}` : `${statusText()}\n${applies}` }
   })
 
   // The boundary: a hard no for the other profile's folders and vault.

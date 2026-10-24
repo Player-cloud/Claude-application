@@ -69,7 +69,7 @@ test('with no profile there is no mode, and /mode says why', { options: ROOTS },
   engine(on, undefined)
   await start($, PERSONAL_APP)
   expect(modesIn(await prompt($))).toBe(0)
-  expect(await mode($, 'tutor')).toContain('modes need a profile')
+  expect(await mode($, 'tutor')).toBe('Modes need a profile. Start the session from the Personal or Work environment.')
 })
 
 // ---- Switching ----
@@ -148,4 +148,47 @@ test('switching modes opens no pane and raises no toast', { options: ROOTS }, as
   await mode($, 'default do')
   expect(seen.panes).toBe(0)
   expect(seen.toasts).toBe(0)
+})
+
+// ---- A mode and a task on one line ----
+
+test('/mode tutor <task> switches to Tutor and hands the task back to send', { options: ROOTS }, async ($, on) => {
+  engine(on, 'personal')
+  await start($, PERSONAL_APP)
+  const reply = await mode($, 'tutor Write a function that checks a UK postcode')
+  expect(reply).toContain('Personal · Tutor')
+  expect(reply).toContain('Now send your task as a message: Write a function that checks a UK postcode')
+  expect(await prompt($)).toContain('Mode: Tutor.')
+})
+
+test('a multi-word mode name still works with a task after it', { options: ROOTS }, async ($, on) => {
+  engine(on, 'personal')
+  await start($, PERSONAL_APP)
+  const reply = await mode($, 'Build with me then refactor the parser')
+  expect(reply).toContain('Personal · Build with me')
+  expect(reply).toContain('Now send your task as a message: then refactor the parser')
+})
+
+test('/mode default <mode> <task> sets the folder default and hands the task back', { options: ROOTS }, async ($, on) => {
+  const seen = engine(on, 'personal')
+  await start($, PERSONAL_APP)
+  const reply = await mode($, 'default review check my tests')
+  expect(reply).toContain('Now the default for this folder')
+  expect(reply).toContain('Now send your task as a message: check my tests')
+  expect(Object.values(seen.store)).toEqual(['review'])
+})
+
+test('an unknown first word names only that word and changes nothing', { options: ROOTS }, async ($, on) => {
+  engine(on, 'personal')
+  await start($, PERSONAL_APP)
+  expect(await mode($, 'chill out for a bit')).toContain('"chill" isn\'t a mode.')
+  expect(await prompt($)).toContain('Mode: Build with me.')
+})
+
+test('no /mode reply repeats the plugin name Desktop already shows', { options: ROOTS }, async ($, on) => {
+  engine(on, 'personal')
+  await start($, PERSONAL_APP)
+  for (const args of ['', 'tutor', 'default do', 'nonsense', 'review write it']) {
+    expect((await mode($, args)).startsWith('workspace-os'), args).toBe(false)
+  }
 })
