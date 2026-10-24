@@ -3,7 +3,7 @@ import type { EngineInterface, Register } from 'claude-code'
 import { MODE_HELP, MODES, SCRATCH_TEXT, modeAtStart, modeFromName, type ModeId } from './modes'
 import { isUnder, norm, parseRoots, pathsInCommand, resolve } from './paths'
 import { gateReason } from './rules'
-import { cleanRelative, excerpt, isHidden, isPrivate, linksTo, maskSecrets, noteName, score } from './vault'
+import { cleanRelative, countOf, draftName, excerpt, hasSecret, isHidden, isPrivate, linksTo, maskSecrets, noteName, score, versionOf } from './vault'
 
 type Profile = 'personal' | 'work'
 
@@ -224,6 +224,22 @@ export const register: Register = (on, options) => {
           inputSchema: { type: 'object', properties: { note: str('The note name or path') }, required: ['note'] },
           isDeferred: false,
         })
+        await $.tool.register({
+          name: 'vault_draft',
+          description: "Save a new note into this profile's vault inbox (_inbox) for the user to review. Never overwrites: a clash gets a numbered name. For changing an existing note use vault_edit.",
+          inputSchema: { type: 'object', properties: { title: str('The note title (becomes the file name)'), text: str('The note text, in markdown') }, required: ['title', 'text'] },
+          isDeferred: false,
+        })
+        await $.tool.register({
+          name: 'vault_edit',
+          description: "Change an existing note in this profile's vault: replace old_text, which must appear exactly once, with new_text. Read the note with vault_read first and pass the version it shows. The user approves every edit.",
+          inputSchema: {
+            type: 'object',
+            properties: { path: str('The note path inside the vault'), old_text: str('Exact text to replace (must appear once)'), new_text: str('The replacement text'), version: str('The version vault_read showed') },
+            required: ['path', 'old_text', 'new_text', 'version'],
+          },
+          isDeferred: false,
+        })
       } catch {
         // Without the tools the vault is simply unavailable this session.
       }
@@ -264,7 +280,66 @@ export const register: Register = (on, options) => {
     const text = await readNote($, dir, real, withExt)
     if (text === null) return { result: `No note at ${withExt}.` }
     const cut = text.length > MAX_NOTE_CHARS ? `${text.slice(0, MAX_NOTE_CHARS)}\n… (note cut at ${MAX_NOTE_CHARS} characters)` : text
-    return { result: maskSecrets(cut) }
+    // The version is of the note as stored, so an edit can tell whether it changed since.
+    return { result: `${maskSecrets(cut)}\n\n(version: ${versionOf(text)})` }
+  })
+
+  // Drafts go only into the inbox and never replace a note: nothing existing can be harmed,
+  // so they don't ask. Changing an existing note is vault_edit's, which always asks.
+  on('tool.call', { tool: 'mcp__workspace-os__vault_draft' }, async ($, e) => {
+    const dir = vaultDir()
+    const real = dir ? await vaultRealPath($, dir) : null
+    if (!dir || !real) return { result: noVault(dir) }
+    const input = e as unknown as { title?: unknown; text?: unknown }
+    const name = draftName(input.title)
+    if (!name) return { result: 'That title can\'t be a file name: avoid / \\ : * ? " < > | and "..".' }
+    const text = typeof input.text === 'string' ? input.text : ''
+    if (!text.trim()) return { result: 'The draft has no text.' }
+    if (hasSecret(text)) return { result: 'The draft contains what looks like a secret (a key, token or password). Remove it and try again.' }
+    const inbox = `${dir}/_inbox`
+    try {
+      const st = await $.fs.stat(inbox, { resolve: true })
+      // An inbox that is a link leading out of the vault isn't the vault's inbox.
+      if (st.kind !== 'dir' || !st.realPath || !isUnder(norm(st.realPath), real)) return { result: 'The vault\'s _inbox isn\'t a folder inside the vault.' }
+    } catch {
+      // No inbox yet: writing the first draft creates it.
+    }
+    for (let n = 1; n <= 50; n++) {
+      const file = n === 1 ? `${name}.md` : `${name} (${n}).md`
+      let taken = true
+      try {
+        await $.fs.stat(`${inbox}/${file}`)
+      } catch {
+        taken = false
+      }
+      if (taken) continue
+      await $.fs.write(`${inbox}/${file}`, text)
+      return { result: `Draft saved to _inbox/${file}.` }
+    }
+    return { result: 'The inbox already has 50 drafts with that title.' }
+  })
+
+  on('tool.call', { tool: 'mcp__workspace-os__vault_edit' }, async ($, e) => {
+    const dir = vaultDir()
+    const real = dir ? await vaultRealPath($, dir) : null
+    if (!dir || !real) return { result: noVault(dir) }
+    const input = e as unknown as { path?: unknown; old_text?: unknown; new_text?: unknown; version?: unknown }
+    const rel = cleanRelative(input.path)
+    if (rel === null || rel === '' || isHidden(rel)) return { result: 'That path is not a note inside the vault.' }
+    const withExt = /\.md$/i.test(rel) ? rel : `${rel}.md`
+    const text = await readNote($, dir, real, withExt)
+    if (text === null) return { result: `No note at ${withExt}.` }
+    if (String(input.version ?? '') !== versionOf(text)) {
+      return { result: `${withExt} changed since it was read (or no version was given). Read it again with vault_read, then edit.` }
+    }
+    const oldText = typeof input.old_text === 'string' ? input.old_text : ''
+    const newText = typeof input.new_text === 'string' ? input.new_text : ''
+    const found = countOf(text, oldText)
+    if (found !== 1) return { result: found === 0 ? 'old_text isn\'t in the note exactly as given.' : `old_text appears ${found} times; give a longer piece that appears once.` }
+    if (hasSecret(newText)) return { result: 'The new text contains what looks like a secret (a key, token or password). Remove it and try again.' }
+    const updated = text.replace(oldText, () => newText)
+    await $.fs.write(`${dir}/${withExt}`, updated)
+    return { result: `Saved ${withExt} (version: ${versionOf(updated)}).` }
   })
 
   on('tool.call', { tool: 'mcp__workspace-os__vault_list' }, async ($, e) => {
@@ -355,7 +430,10 @@ export const register: Register = (on, options) => {
   // The gate: these always ask you. A plugin's ask is answered by a person, never by
   // an auto-mode classifier or a saved always-allow rule. A deny below stays a deny.
   on('tool.check', async ($, e, next) => {
-    const why = gateReason(e.tool, e.input) ?? memoryReason(e.tool, e.input)
+    const why =
+      gateReason(e.tool, e.input) ??
+      memoryReason(e.tool, e.input) ??
+      (e.tool === 'mcp__workspace-os__vault_edit' ? 'changes to your notes always ask' : null)
     const verdict = await next(e)
     if (!why || verdict.decision === 'deny') return verdict
     return { decision: 'ask', reason: `workspace-os: ${why}.` }
@@ -372,7 +450,7 @@ export const register: Register = (on, options) => {
     const mode = currentMode()
     const vault = vaultDir()
     const vaultLine = vault
-      ? `This profile's notes vault is ${vault}: search and read it with the vault_search, vault_read, vault_list and vault_backlinks tools; other tools can't open it.`
+      ? `This profile's notes vault is ${vault}: search and read it with the vault_search, vault_read, vault_list and vault_backlinks tools, save new notes to its inbox with vault_draft, and change a note with vault_edit (the user approves each edit); other tools can't open it. There is no tool to delete or move notes.`
       : ''
     const extra = [vaultLine, inScratch() ? SCRATCH_TEXT : '', mode ? MODES[mode].text : ''].filter(Boolean).map(t => ` ${t}`).join('')
     const text = profile

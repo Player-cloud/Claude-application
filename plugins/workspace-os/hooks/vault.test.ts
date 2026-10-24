@@ -182,10 +182,10 @@ test('with no profile the vault tools aren\'t registered and have no vault', { o
   expect(await vault($, 'vault_read', { path: 'Garden.md' })).toBe('This session has no profile, so it has no notes vault.')
 })
 
-test('the four tools are registered up front, and the prompt points to them', { options: ROOTS }, async ($, on) => {
+test('the vault tools are registered up front, and the prompt points to them', { options: ROOTS }, async ($, on) => {
   const seen = engine(on, 'personal')
   await start($, PERSONAL_APP)
-  expect(seen.registered).toEqual(['vault_search', 'vault_read', 'vault_list', 'vault_backlinks'])
+  expect(seen.registered).toEqual(['vault_search', 'vault_read', 'vault_list', 'vault_backlinks', 'vault_draft', 'vault_edit'])
   const input = { model: 'claude-opus-5-5', promptModel: 'claude-opus-5-5', surfaces: ['desktop'], tools: ['Read'], outputStyle: null, traits: [] }
   const { sections } = (await $.prompt.compose(input as never)) as { sections: readonly { text: string }[] }
   expect(sections[0]!.text).toContain("This profile's notes vault is C:\\Users\\me\\Code\\personal\\Vault")
