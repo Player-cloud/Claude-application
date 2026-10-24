@@ -14,7 +14,7 @@ Workspace OS as a plugin pack for Claude Code, running in the Claude Desktop Cod
 | `nudges` | Suggests the next command above the prompt, with a Run button that asks first |
 | `secret-shield` | Replaces secrets in your messages with placeholders before Claude sees them and keeps the values outside your projects |
 | `token-weather` | A context-window forecast in the band above the prompt |
-| `workspace-os` | Personal and Work profiles: the profile comes from the saved environment a session starts in (`WSOS_PROFILE`), the other profile's folders are blocked, deploys, pushes, migrations and `.env` writes always ask, other mods can't write the shared `~/.claude/CLAUDE.md`, the `feedback` skill is the one writer of each profile's `Preferences` notes, and `/mode tutor|build|do|review` picks a learning mode per session (`/mode default …` per folder), with a `scratch` folder per profile for one-off tasks |
+| `workspace-os` | Personal and Work profiles: the profile comes from the saved environment a session starts in (`WSOS_PROFILE`), the other profile's folders are blocked, deploys, pushes, migrations and `.env` writes always ask, other mods can't write the shared `~/.claude/CLAUDE.md`, the `feedback` skill is the one writer of each profile's `Preferences` notes, and `/mode tutor|build|do|review` picks a learning mode per session (`/mode default …` per folder), with a `scratch` folder per profile for one-off tasks; each profile's `Vault` (Obsidian-style markdown) is read only through the `vault_search`, `vault_read`, `vault_list` and `vault_backlinks` tools, which skip `agent: none` notes and `.obsidian`, stay inside the vault, and mask secrets |
 
 ## Quiet by default
 
