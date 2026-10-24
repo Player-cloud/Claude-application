@@ -69,7 +69,9 @@ function engine(on: any, profile: string | undefined): Seen {
     throw new Error('ENOENT')
   })
   on('fs.read', (_$: any, e: any) => {
-    const f = find(FILES, e.path)
+    // Reading through a link reads what it points at, as a real disk does.
+    const link = find(LINKS, e.path)
+    const f = find(FILES, link ? LINKS[link]! : e.path)
     if (!f) throw new Error('ENOENT')
     return { value: FILES[f] } as never
   })
