@@ -1,8 +1,9 @@
-import type { Register } from 'claude-code'
+import type { EngineInterface, Register } from 'claude-code'
 
 import { MODE_HELP, MODES, SCRATCH_TEXT, modeFromName, type ModeId } from './modes'
-import { isUnder, parseRoots, pathsInCommand, resolve } from './paths'
+import { isUnder, norm, parseRoots, pathsInCommand, resolve } from './paths'
 import { gateReason } from './rules'
+import { cleanRelative, excerpt, isHidden, isPrivate, linksTo, maskSecrets, noteName, score } from './vault'
 
 type Profile = 'personal' | 'work'
 
@@ -22,6 +23,54 @@ const GLOBAL_TOAST =
   "workspace-os: ~/.claude/CLAUDE.md is shared by Personal and Work, so global saves are off. Use 'This repo instead', or the feedback skill for taste."
 const PREFS_DENY = 'workspace-os blocked this: Preferences notes are written only through the feedback skill, with your approval.'
 const WRITE_CHECK_FAILED = 'workspace-os blocked this: its memory check failed.'
+const VAULT_DIRECT = 'workspace-os blocked this: the notes vault is read only through the vault tools (vault_search, vault_read, vault_list, vault_backlinks).'
+
+// ---- The vault (read-only) ----
+
+const noVault = (dir: string | null) =>
+  dir ? `This profile has no notes vault yet (expected at ${dir}).` : 'This session has no profile, so it has no notes vault.'
+const MAX_NOTES = 2000
+const MAX_NOTE_CHARS = 100_000
+
+// Where the vault really is, every link followed, or null when it doesn't exist yet.
+async function vaultRealPath($: EngineInterface, vaultDir: string): Promise<string | null> {
+  try {
+    const st = await $.fs.stat(vaultDir, { resolve: true })
+    return st.kind === 'dir' && st.realPath ? norm(st.realPath) : null
+  } catch {
+    return null
+  }
+}
+
+// Every note's path inside the vault. Only real folders are entered: a link is listed
+// as `other` and skipped, so nothing outside the vault is pulled in; .obsidian is never
+// entered.
+async function walkNotes($: EngineInterface, vaultDir: string, rel = '', out: string[] = []): Promise<string[]> {
+  if (out.length >= MAX_NOTES) return out
+  const entries = await $.fs.list(rel ? `${vaultDir}/${rel}` : vaultDir)
+  for (const entry of entries) {
+    const child = rel ? `${rel}/${entry.name}` : entry.name
+    if (isHidden(child)) continue
+    if (entry.kind === 'dir') await walkNotes($, vaultDir, child, out)
+    else if (entry.kind === 'file' && /\.md$/i.test(entry.name)) out.push(child)
+    if (out.length >= MAX_NOTES) break
+  }
+  return out
+}
+
+// One note's text, or null when it isn't a note this tool may show: missing, private
+// (`agent: none`), or landing outside the vault once every link is followed.
+async function readNote($: EngineInterface, vaultDir: string, vaultReal: string, rel: string): Promise<string | null> {
+  const path = `${vaultDir}/${rel}`
+  try {
+    const st = await $.fs.stat(path, { resolve: true })
+    if (st.kind !== 'file' || !st.realPath || !isUnder(norm(st.realPath), vaultReal)) return null
+    const text = String(await $.fs.read(path))
+    return isPrivate(text) ? null : text
+  } catch {
+    return null
+  }
+}
 
 // The paths a call would touch. A shell command also runs in the session's folder,
 // and a search with no path searches it, so the folder itself counts.
@@ -84,6 +133,21 @@ export const register: Register = (on, options) => {
     return null
   }
 
+  // This profile's vault: its own setting, else a Vault folder in the profile's first
+  // folder. Inside the profile, so the boundary keeps the other profile out of it.
+  const vaultDir = (): string | null => {
+    if (!profile) return null
+    const own = profile === 'work' ? options.workVault : options.personalVault
+    if (typeof own === 'string' && own.trim()) return own.trim().replace(/[\\/]+$/, '')
+    const raw = profile === 'work' ? options.workRoots : options.personalRoots
+    const first = typeof raw === 'string' ? raw.split(';').map(s => s.trim()).find(Boolean) : undefined
+    return first ? `${first.replace(/[\\/]+$/, '')}\\Vault` : null
+  }
+  const inOwnVault = (path: string) => {
+    const dir = vaultDir()
+    return dir !== null && isUnder(resolve(path, cwd, home), resolve(dir, '', ''))
+  }
+
   // The folder this profile's taste notes are in, as you typed it in the settings.
   const prefsShown = () => {
     const raw = profile === 'work' ? options.workRoots : profile === 'personal' ? options.personalRoots : ''
@@ -132,7 +196,105 @@ export const register: Register = (on, options) => {
     } catch {
       // Without the command the profile's default mode still applies.
     }
+    // The vault tools exist only in a session with a profile: each reads that profile's vault.
+    if (profile) {
+      try {
+        const str = (description: string) => ({ type: 'string', description })
+        await $.tool.register({
+          name: 'vault_search',
+          description: "Search this profile's notes vault. Every word must appear in a note's name or text. Returns matching note paths with a line of context, best first.",
+          inputSchema: { type: 'object', properties: { query: str('Words to look for'), limit: { type: 'number', description: 'At most this many notes (default 10, up to 20)' } }, required: ['query'] },
+          isDeferred: false,
+        })
+        await $.tool.register({
+          name: 'vault_read',
+          description: "Read one note from this profile's notes vault, by its path inside the vault (e.g. Projects/Idea.md).",
+          inputSchema: { type: 'object', properties: { path: str('The note path inside the vault') }, required: ['path'] },
+          isDeferred: false,
+        })
+        await $.tool.register({
+          name: 'vault_list',
+          description: "List the notes in this profile's notes vault, optionally only those in one folder of it.",
+          inputSchema: { type: 'object', properties: { folder: str('A folder inside the vault (optional)') } },
+          isDeferred: false,
+        })
+        await $.tool.register({
+          name: 'vault_backlinks',
+          description: "List the notes in this profile's notes vault that link to a note ([[Note]]).",
+          inputSchema: { type: 'object', properties: { note: str('The note name or path') }, required: ['note'] },
+          isDeferred: false,
+        })
+      } catch {
+        // Without the tools the vault is simply unavailable this session.
+      }
+    }
     return result
+  })
+
+  // ---- The vault tools. Each answers for this session's profile only. ----
+
+  on('tool.call', { tool: 'mcp__workspace-os__vault_search' }, async ($, e) => {
+    const dir = vaultDir()
+    const real = dir ? await vaultRealPath($, dir) : null
+    if (!dir || !real) return { result: noVault(dir) }
+    const query = String((e as unknown as { query?: unknown }).query ?? '').trim()
+    if (!query) return { result: 'Give some words to search for.' }
+    const limit = Math.min(Math.max(Number((e as unknown as { limit?: unknown }).limit) || 10, 1), 20)
+    const hits: { rel: string; score: number; line: string }[] = []
+    for (const rel of await walkNotes($, dir)) {
+      const text = await readNote($, dir, real, rel)
+      if (text === null) continue
+      const s = score(rel, text, query)
+      if (s > 0) hits.push({ rel, score: s, line: maskSecrets(excerpt(text, query)) })
+    }
+    if (hits.length === 0) return { result: `No notes match "${query}".` }
+    hits.sort((a, b) => b.score - a.score || a.rel.localeCompare(b.rel))
+    return { result: hits.slice(0, limit).map(h => `- ${h.rel}${h.line ? `: ${h.line}` : ''}`).join('\n') }
+  })
+
+  on('tool.call', { tool: 'mcp__workspace-os__vault_read' }, async ($, e) => {
+    const dir = vaultDir()
+    const real = dir ? await vaultRealPath($, dir) : null
+    if (!dir || !real) return { result: noVault(dir) }
+    const rel = cleanRelative((e as unknown as { path?: unknown }).path)
+    if (rel === null || rel === '' || isHidden(rel)) return { result: 'That path is not a note inside the vault.' }
+    const withExt = /\.md$/i.test(rel) ? rel : `${rel}.md`
+    // Missing, private and outside-the-vault all read the same, so a private note's
+    // existence isn't given away.
+    const text = await readNote($, dir, real, withExt)
+    if (text === null) return { result: `No note at ${withExt}.` }
+    const cut = text.length > MAX_NOTE_CHARS ? `${text.slice(0, MAX_NOTE_CHARS)}\n… (note cut at ${MAX_NOTE_CHARS} characters)` : text
+    return { result: maskSecrets(cut) }
+  })
+
+  on('tool.call', { tool: 'mcp__workspace-os__vault_list' }, async ($, e) => {
+    const dir = vaultDir()
+    const real = dir ? await vaultRealPath($, dir) : null
+    if (!dir || !real) return { result: noVault(dir) }
+    const folder = cleanRelative((e as unknown as { folder?: unknown }).folder ?? '')
+    if (folder === null || isHidden(folder)) return { result: 'That folder is not inside the vault.' }
+    const shown: string[] = []
+    for (const rel of await walkNotes($, dir)) {
+      if (folder && !rel.toLowerCase().startsWith(`${folder.toLowerCase()}/`)) continue
+      if ((await readNote($, dir, real, rel)) !== null) shown.push(rel)
+    }
+    return { result: shown.length ? shown.join('\n') : folder ? `No notes in ${folder}.` : 'The vault has no notes yet.' }
+  })
+
+  on('tool.call', { tool: 'mcp__workspace-os__vault_backlinks' }, async ($, e) => {
+    const dir = vaultDir()
+    const real = dir ? await vaultRealPath($, dir) : null
+    if (!dir || !real) return { result: noVault(dir) }
+    const target = cleanRelative((e as unknown as { note?: unknown }).note)
+    if (!target) return { result: 'Name a note.' }
+    const name = noteName(target)
+    const linking: string[] = []
+    for (const rel of await walkNotes($, dir)) {
+      if (noteName(rel).toLowerCase() === name.toLowerCase()) continue
+      const text = await readNote($, dir, real, rel)
+      if (text !== null && linksTo(text, name)) linking.push(rel)
+    }
+    return { result: linking.length ? linking.join('\n') : `No notes link to ${name}.` }
   })
 
   on('command.run', { command: 'mode' }, async ($, e) => {
@@ -166,6 +328,9 @@ export const register: Register = (on, options) => {
     if (paths && paths.some(inBlocked)) {
       return { deny: profile ? outsideProfile(profile) : NO_PROFILE }
     }
+    // The vault's own rules (private notes, masked secrets) hold only if every read goes
+    // through the vault tools, so Claude's built-in tools can't open it directly.
+    if (paths && paths.some(inOwnVault)) return { deny: VAULT_DIRECT }
     return next(e)
   }).catch(($, e, next) => (next.called ? next(e) : { deny: CHECK_FAILED }))
 
@@ -204,7 +369,11 @@ export const register: Register = (on, options) => {
       ? ` The user's taste notes for this profile are in ${prefs}: before writing code or prose, read the matching file there (coding.md, writing.md, design.md, learning.md, general.md) if it exists. Only the feedback skill changes them.`
       : ''
     const mode = currentMode()
-    const extra = [inScratch() ? SCRATCH_TEXT : '', mode ? MODES[mode].text : ''].filter(Boolean).map(t => ` ${t}`).join('')
+    const vault = vaultDir()
+    const vaultLine = vault
+      ? `This profile's notes vault is ${vault}: search and read it with the vault_search, vault_read, vault_list and vault_backlinks tools; other tools can't open it.`
+      : ''
+    const extra = [vaultLine, inScratch() ? SCRATCH_TEXT : '', mode ? MODES[mode].text : ''].filter(Boolean).map(t => ` ${t}`).join('')
     const text = profile
       ? `This session is in the ${LABEL[profile]} profile (Workspace OS). Folders that belong to the other profile are off limits; calls that touch them are refused. Deploys, pushes, migrations and .env writes always ask the user first.${taste}${extra}`
       : 'This session has no Workspace OS profile, so Work folders are off limits; calls that touch them are refused. Deploys, pushes, migrations and .env writes always ask the user first.'
