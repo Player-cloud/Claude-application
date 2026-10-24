@@ -1,7 +1,7 @@
 {
   "name": "workspace-os",
   "version": "0.1.0",
-  "description": "Personal and Work profiles for the Code tab: each session knows its profile from the saved environment it started in, the other profile's folders are blocked, and deploys, pushes and migrations always ask you first.",
+  "description": "Personal and Work profiles for the Code tab: each session knows its profile from the saved environment it started in, the other profile's folders are blocked, deploys, pushes and migrations always ask you first, and your taste is kept per profile in Preferences notes that only the feedback skill writes, with your approval.",
   "userConfig": {
     "personalRoots": {
       "type": "string",
