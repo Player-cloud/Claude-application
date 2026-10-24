@@ -1,0 +1,34 @@
+{
+  "name": "workspace-os",
+  "version": "0.1.0",
+  "description": "Personal and Work profiles for the Code tab: each session knows its profile from the saved environment it started in, the other profile's folders are blocked, and deploys, pushes and migrations always ask you first.",
+  "userConfig": {
+    "personalRoots": {
+      "type": "string",
+      "title": "Personal folders",
+      "description": "Folders that belong to the Personal profile, separated by ;. Work sessions can't touch them. Example: C:\\Users\\me\\Code\\personal",
+      "default": ""
+    },
+    "workRoots": {
+      "type": "string",
+      "title": "Work folders",
+      "description": "Folders that belong to the Work profile, separated by ;. Personal sessions, and sessions with no profile, can't touch them.",
+      "default": ""
+    },
+    "personalVault": {
+      "type": "string",
+      "title": "Personal vault",
+      "description": "The Personal notes vault folder. Treated as a Personal folder.",
+      "default": ""
+    },
+    "workVault": {
+      "type": "string",
+      "title": "Work vault",
+      "description": "The Work notes vault folder. Treated as a Work folder.",
+      "default": ""
+    }
+  },
+  "author": {
+    "name": "Joshua Oduore"
+  }
+}

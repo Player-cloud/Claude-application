@@ -46,6 +46,11 @@
       "name": "nudges",
       "source": "./plugins/nudges",
       "description": "Suggests the right command at the right moment above the prompt, with a one-click Run: ship-check after a commit or push, next-part on a clean project, finishing old uncommitted work, and the manager update on Friday afternoons."
+    },
+    {
+      "name": "workspace-os",
+      "source": "./plugins/workspace-os",
+      "description": "Personal and Work profiles: a session's profile comes from the saved environment it started in, the other profile's folders are blocked, and deploys, pushes and migrations always ask first."
     }
   ]
 }
