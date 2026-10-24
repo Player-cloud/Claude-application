@@ -224,7 +224,7 @@ test('the profile name is forgiving about case and spaces; anything else is no p
   await start($, WORK_APP)
   vars.WSOS_PROFILE = 'home'
   await start($, PERSONAL_APP)
-  expect(seen.statuses).toEqual(['Work', 'No profile · Work folders blocked'])
+  expect(seen.statuses).toEqual(['Work · Do it for me', 'No profile · Work folders blocked'])
 })
 
 test('quiet: a session start opens no pane, raises no toast and sets one status', { options: ROOTS }, async ($, on) => {
@@ -232,7 +232,7 @@ test('quiet: a session start opens no pane, raises no toast and sets one status'
   await start($, PERSONAL_APP)
   expect(seen.panes).toBe(0)
   expect(seen.toasts).toBe(0)
-  expect(seen.statuses).toEqual(['Personal'])
+  expect(seen.statuses).toEqual(['Personal · Build with me'])
 })
 
 test('the system prompt names the profile but no folder of the other one', { options: ROOTS }, async ($, on) => {

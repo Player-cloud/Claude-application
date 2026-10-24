@@ -1,5 +1,6 @@
 import type { Register } from 'claude-code'
 
+import { MODE_HELP, MODES, SCRATCH_TEXT, modeFromName, type ModeId } from './modes'
 import { isUnder, parseRoots, pathsInCommand, resolve } from './paths'
 import { gateReason } from './rules'
 
@@ -94,8 +95,21 @@ export const register: Register = (on, options) => {
     if (cwd && blocked().some(root => isUnder(cwd, root))) {
       return profile ? `${LABEL[profile]} · this folder belongs to the other profile` : 'No profile · this is a Work folder'
     }
-    return profile ? LABEL[profile] : 'No profile · Work folders blocked'
+    if (!profile) return 'No profile · Work folders blocked'
+    const mode = currentMode()
+    return [LABEL[profile], inScratch() ? 'scratch' : '', mode ? MODES[mode].label : ''].filter(Boolean).join(' · ')
   }
+
+  // Learning modes: this session's choice wins, then this folder's saved default,
+  // then the profile's. A session with no profile gets none: the output style decides.
+  let sessionMode: ModeId | null = null
+  let folderDefault: ModeId | null = null
+  const inScratch = () => profile !== null && roots[profile].some(root => isUnder(cwd, `${root}/scratch`))
+  const currentMode = (): ModeId | null => {
+    if (!profile) return null
+    return sessionMode ?? folderDefault ?? (inScratch() || profile === 'work' ? 'do' : 'build')
+  }
+  const storeKey = () => `mode:${cwd}`
 
   on('session.start', async ($, e, next) => {
     const result = await next(e)
@@ -103,8 +117,48 @@ export const register: Register = (on, options) => {
     profile = raw === 'personal' || raw === 'work' ? raw : null
     cwd = resolve(String((e as { cwd?: string }).cwd ?? (await $.session.root())), '', '')
     home = resolve((await $.env.get('USERPROFILE')) ?? (await $.env.get('HOME')) ?? cwd, '', '')
+    sessionMode = null
+    // The profile above is the safety part; a missing store or command only costs the
+    // mode, so neither may stop the start.
+    try {
+      const saved = await $.store.get(storeKey())
+      folderDefault = typeof saved === 'string' ? modeFromName(saved) : null
+    } catch {
+      folderDefault = null
+    }
     $.ui.status(statusText())
+    try {
+      await $.command.register({ name: 'mode', description: 'Learning mode: tutor, build, do or review', argumentHint: '[default] tutor|build|do|review' })
+    } catch {
+      // Without the command the profile's default mode still applies.
+    }
     return result
+  })
+
+  on('command.run', { command: 'mode' }, async ($, e) => {
+    if (!profile) return { text: 'workspace-os: modes need a profile. Start the session from the Personal or Work environment.' }
+    const words = String(e.args ?? '').trim().split(/\s+/).filter(Boolean)
+    const isDefault = words[0]?.toLowerCase() === 'default'
+    const name = (isDefault ? words.slice(1) : words).join(' ')
+    if (!name) {
+      const mode = currentMode()
+      return { text: `Mode: ${mode ? MODES[mode].label : 'none'}. ${MODE_HELP}` }
+    }
+    const mode = modeFromName(name)
+    if (!mode) return { text: `workspace-os: "${name}" isn't a mode. ${MODE_HELP}` }
+    if (isDefault) {
+      await $.store.set(storeKey(), mode)
+      folderDefault = mode
+      sessionMode = null
+    } else {
+      sessionMode = mode
+    }
+    $.ui.status(statusText())
+    return {
+      text: isDefault
+        ? `Mode: ${MODES[mode].label}, now the default for this folder (from your next message).`
+        : `Mode: ${MODES[mode].label} for this session (from your next message).`,
+    }
   })
 
   // The boundary: a hard no for the other profile's folders and vault.
@@ -150,8 +204,10 @@ export const register: Register = (on, options) => {
     const taste = prefs
       ? ` The user's taste notes for this profile are in ${prefs}: before writing code or prose, read the matching file there (coding.md, writing.md, design.md, learning.md, general.md) if it exists. Only the feedback skill changes them.`
       : ''
+    const mode = currentMode()
+    const extra = [inScratch() ? SCRATCH_TEXT : '', mode ? MODES[mode].text : ''].filter(Boolean).map(t => ` ${t}`).join('')
     const text = profile
-      ? `This session is in the ${LABEL[profile]} profile (Workspace OS). Folders that belong to the other profile are off limits; calls that touch them are refused. Deploys, pushes, migrations and .env writes always ask the user first.${taste}`
+      ? `This session is in the ${LABEL[profile]} profile (Workspace OS). Folders that belong to the other profile are off limits; calls that touch them are refused. Deploys, pushes, migrations and .env writes always ask the user first.${taste}${extra}`
       : 'This session has no Workspace OS profile, so Work folders are off limits; calls that touch them are refused. Deploys, pushes, migrations and .env writes always ask the user first.'
     return { ...result, sections: [...result.sections, { id: 'workspace-os:profile', text, scope: 'session' }] }
   })
