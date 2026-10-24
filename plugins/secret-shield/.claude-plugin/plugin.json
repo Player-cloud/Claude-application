@@ -1,6 +1,6 @@
 {
   "name": "secret-shield",
-  "version": "1.4.0",
+  "version": "1.5.0",
   "description": "Swaps passwords, keys and database URLs in your messages for named placeholders before Claude sees them and stores the values outside your projects. Showing a value on hover is opt-in.",
   "types": "./types/index.d.ts",
   "userConfig": {
@@ -8,6 +8,18 @@
       "type": "boolean",
       "title": "Reveal secrets on hover",
       "description": "Show a hidden secret's real value when you hover its placeholder in the expanded view (ctrl+o). Off keeps values out of the screen entirely.",
+      "default": false
+    },
+    "autoScrub": {
+      "type": "boolean",
+      "title": "Scrub old transcripts at every start",
+      "description": "Rewrite finished transcripts, memory notes and remember logs on every session start, replacing known secrets with placeholders. Off: they are only scrubbed when you run /scrub-secrets.",
+      "default": false
+    },
+    "keepBackups": {
+      "type": "boolean",
+      "title": "Keep unredacted backups",
+      "description": "Before rewriting a file, save its original (with the secrets in it) to ~/.claude/secret-shield/backups/. Off: files are rewritten in place through a temp file, with no copy left behind.",
       "default": false
     }
   },

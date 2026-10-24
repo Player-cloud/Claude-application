@@ -6,8 +6,9 @@
 //    queue records written before any mod runs) and detects secrets there,
 //    adding new ones to that project's vault.
 // 3. Replaces every known value, wherever it appears in the file, with its
-//    placeholder. A backup of each changed file goes to
-//    ~/.claude/secret-shield/backups/ first.
+//    placeholder, writing through a temp file and a rename. With
+//    --keep-backups, a copy of each changed file (secrets included) goes to
+//    ~/.claude/secret-shield/backups/ first; without it no copy is left.
 //
 // Files touched in the last --min-age minutes (default 10) are skipped: a
 // running session is still writing them. --exclude <sessionId> skips one
@@ -16,7 +17,7 @@
 // --prune-backups instead deletes those backups (they hold the unredacted
 // originals), nothing else, and exits; with --dry-run it only counts them.
 //
-// Usage: node --no-warnings --experimental-strip-types scrub.mjs [--dry-run] [--min-age N] [--exclude ID]
+// Usage: node --no-warnings --experimental-strip-types scrub.mjs [--dry-run] [--keep-backups] [--min-age N] [--exclude ID]
 //        node --no-warnings --experimental-strip-types scrub.mjs --prune-backups [--dry-run]
 
 import { readFileSync, writeFileSync, renameSync, mkdirSync, readdirSync, statSync, existsSync, copyFileSync, rmSync } from 'node:fs'
@@ -31,6 +32,7 @@ const option = (name, fallback) => {
   return i >= 0 && args[i + 1] !== undefined ? args[i + 1] : fallback
 }
 const dryRun = flag('--dry-run')
+const keepBackups = flag('--keep-backups')
 const minAgeMs = Number(option('--min-age', '10')) * 60_000
 const exclude = option('--exclude', '')
 
@@ -123,10 +125,19 @@ function scrubText(text) {
   return { out, hits }
 }
 
+// Files this run rewrote: a later pass sees them as freshly changed, but they
+// aren't another session's work in progress, so they aren't counted as busy.
+const written = new Set()
+
+// The temp file and rename already make the rewrite all-or-nothing, so a
+// backup is only an undo, and an undo that keeps the secrets is opt-in.
 function writeScrubbed(file, text) {
-  const backup = join(BACKUP_DIR, relative(HOME, file).replace(/[\\/:]+/g, '__') + '.bak')
-  mkdirSync(dirname(backup), { recursive: true })
-  copyFileSync(file, backup)
+  written.add(file)
+  if (keepBackups) {
+    const backup = join(BACKUP_DIR, relative(HOME, file).replace(/[\\/:]+/g, '__') + '.bak')
+    mkdirSync(dirname(backup), { recursive: true })
+    copyFileSync(file, backup)
+  }
   const temp = `${file}.secret-shield.tmp`
   writeFileSync(temp, text)
   renameSync(temp, file)
@@ -163,7 +174,7 @@ const eligible = []
 for (const file of transcripts) {
   if (exclude && basename(file).startsWith(exclude)) continue
   if (now - statSync(file).mtimeMs < minAgeMs) {
-    skippedBusy++
+    if (!written.has(file)) skippedBusy++
     continue
   }
   eligible.push(file)

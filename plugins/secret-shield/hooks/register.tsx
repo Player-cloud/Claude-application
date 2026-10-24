@@ -72,11 +72,11 @@ type ScrubSummary = {
 }
 
 // Runs hooks/scrub.mjs over finished transcripts, memory and remember logs.
-async function scrub($: any, extra: string[] = []): Promise<ScrubSummary> {
+async function scrub($: any, keepBackups: boolean, extra: string[] = []): Promise<ScrubSummary> {
   const script = `${$.plugin.root}/hooks/scrub.mjs`
   const id: string = await $.session.id()
   const run = await $.process.run(
-    ['node', '--no-warnings', '--experimental-strip-types', script, '--exclude', id, ...extra],
+    ['node', '--no-warnings', '--experimental-strip-types', script, '--exclude', id, ...(keepBackups ? ['--keep-backups'] : []), ...extra],
     { timeoutMs: 300_000 },
   )
   if (run.exitCode !== 0) throw new Error(run.stderr.trim().split('\n').pop() || `scrubber exited ${run.exitCode}`)
@@ -106,21 +106,27 @@ async function prune($: any, dry: boolean): Promise<PruneSummary> {
 export const register: Register = (on, options) => {
   // Showing a secret's value on hover is opt-in: /config → secret-shield → "Reveal secrets on hover".
   const revealOnHover = options.revealOnHover === true
+  // Rewriting other sessions' transcripts is something you ask for, not something every start does.
+  const autoScrub = options.autoScrub === true
+  // A backup holds the very secrets the scrub removed, so it is kept only when you opt in.
+  const keepBackups = options.keepBackups === true
 
   on('session.start', async ($, e, next) => {
     const result = await next(e)
     await $.command.register({
       name: 'scrub-secrets',
-      description: 'Replace secrets in old Claude Code transcripts with placeholders ("dry" previews; "prune" deletes the unredacted backups)',
+      description: 'Replace secrets in old Claude Code transcripts with placeholders ("dry" previews; "prune" deletes any unredacted backups)',
     })
     void publish($).catch(() => {})
-    // In the background: a slow scrub must not hold up the session.
-    void scrub($)
-      .then(async s => {
-        await publish($, s)
-        if (s.replacements > 0) $.ui.toast(describe(s))
-      })
-      .catch(() => {})
+    if (autoScrub) {
+      // In the background: a slow scrub must not hold up the session.
+      void scrub($, keepBackups)
+        .then(async s => {
+          await publish($, s)
+          if (s.replacements > 0) $.ui.toast(describe(s))
+        })
+        .catch(() => {})
+    }
     return result
   })
 
@@ -141,11 +147,11 @@ export const register: Register = (on, options) => {
       }
     }
     try {
-      const s = await scrub($, dry ? ['--dry-run'] : [])
+      const s = await scrub($, keepBackups, dry ? ['--dry-run'] : [])
       await publish($, s)
       const lines = [describe(s), ...s.files.map(f => `  ${f}`)]
       if (s.skippedBusy) lines.push(`Skipped ${s.skippedBusy} transcripts changed in the last 10 minutes (sessions still running).`)
-      if (!dry && s.filesChanged) lines.push('Unredacted backups of changed files are in ~/.claude/secret-shield/backups/. Delete them with /scrub-secrets prune once you are happy.')
+      if (!dry && s.filesChanged && keepBackups) lines.push('Unredacted backups of changed files are in ~/.claude/secret-shield/backups/. Delete them with /scrub-secrets prune once you are happy.')
       return { text: lines.join('\n') }
     } catch (err) {
       return { text: `secret-shield scrub failed: ${(err as Error).message}` }
@@ -185,7 +191,13 @@ export const register: Register = (on, options) => {
       `(for example: grep '^NAME=' "<vault>" >> .env), and only when the user asks for that.`
 
     return next({ ...e, text: redact(e.text, named), context: [...(e.context ?? []), note] })
-  })
+  }).catch(($, e, next) =>
+    // A guard that fails is skipped by the engine, which would send the message unredacted. Hold it
+    // back instead; the bypass prefix still sends it on purpose.
+    next.called
+      ? next(e)
+      : { drop: 'secret-shield could not check this message for secrets, so it was not sent. Try again, or start it with "allow-secrets:" to send it unchecked.' },
+  )
 
   on('ui.render', { component: 'UserMessage' }, async ($, e, next) => {
     const text: string = e.props.text

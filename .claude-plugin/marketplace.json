@@ -4,7 +4,7 @@
     "name": "Joshua Oduore"
   },
   "metadata": {
-    "description": "Personal Claude Code toolkit: secret protection, context and usage forecast, pipeline control panel, deploy status, Cowork handoff and a skill learner."
+    "description": "Workspace OS for the Claude Code tab: secret protection, context forecast, pipeline control panel, deploy status, Cowork handoff and a skill learner. Quiet by default."
   },
   "plugins": [
     {
