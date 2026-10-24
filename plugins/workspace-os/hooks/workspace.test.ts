@@ -59,16 +59,17 @@ test('Personal can read its own folders but not Work folders or the Work vault',
   await read($, 'C:/Users/me/Vaults/Work/clients.md')
   await read($, 'D:/Clients/acme/contract.md')
   expect(seen.ran).toEqual(['Read'])
-  expect(JSON.stringify(blocked)).toContain('outside the Personal profile')
+  expect(JSON.stringify(blocked)).toContain('workspace-os blocked this: the path is outside the Personal profile.')
 })
 
 test('Work can write its own folders but not Personal ones', { options: ROOTS }, async ($, on) => {
   const seen = engine(on, env('work'))
   await start($, WORK_APP)
   await $.tool.call({ tool: 'Write', file_path: `${WORK_APP}/a.ts`, content: 'x' } as never)
-  await $.tool.call({ tool: 'Write', file_path: 'C:/Users/me/Vaults/Personal/diary.md', content: 'x' } as never)
+  const blocked = await $.tool.call({ tool: 'Write', file_path: 'C:/Users/me/Vaults/Personal/diary.md', content: 'x' } as never)
   await $.tool.call({ tool: 'Edit', file_path: `${PERSONAL_APP}/a.ts`, old_string: 'a', new_string: 'b' } as never)
   expect(seen.ran).toEqual(['Write'])
+  expect(JSON.stringify(blocked)).toContain('workspace-os blocked this: the path is outside the Work profile.')
 })
 
 test('Windows spellings of a Work path are all caught; a look-alike folder is not', { options: ROOTS }, async ($, on) => {
@@ -103,8 +104,26 @@ test('with no profile, Work is blocked and Personal works', { options: ROOTS }, 
   await read($, `${PERSONAL_APP}/a.ts`)
   const blocked = await read($, `${WORK_APP}/a.ts`)
   expect(seen.ran).toEqual(['Read'])
-  expect(JSON.stringify(blocked)).toContain('no profile')
+  expect(JSON.stringify(blocked)).toContain(
+    'workspace-os blocked this: Work folders are off limits in a session with no profile. To use them, start the session from the Work environment.',
+  )
   expect(seen.statuses).toEqual(['No profile · Work folders blocked'])
+})
+
+test('refusals read as plain sentences: none repeats "so"', { options: ROOTS }, async ($, on) => {
+  engine(on, env('personal'))
+  await start($, PERSONAL_APP)
+  const personal = JSON.stringify(await read($, `${WORK_APP}/a.ts`))
+  expect(personal).toContain('workspace-os blocked this:')
+  expect(/\bso\b[\s\S]*\bso\b/.test(personal)).toBe(false)
+})
+
+test('refusals with no profile read as plain sentences too', { options: ROOTS }, async ($, on) => {
+  engine(on, env(undefined))
+  await start($, PERSONAL_APP)
+  const none = JSON.stringify(await read($, `${WORK_APP}/a.ts`))
+  expect(none).toContain('workspace-os blocked this:')
+  expect(/\bso\b[\s\S]*\bso\b/.test(none)).toBe(false)
 })
 
 test('a session started inside the other profile\'s folder can\'t search or run there', { options: ROOTS }, async ($, on) => {

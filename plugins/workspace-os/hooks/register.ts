@@ -7,6 +7,13 @@ type Profile = 'personal' | 'work'
 
 const LABEL: Record<Profile, string> = { personal: 'Personal', work: 'Work' }
 
+// What Claude reads when a call is refused, and passes on to you: what happened in
+// one sentence, and what to do only where there is something to do.
+const outsideProfile = (p: Profile) => `workspace-os blocked this: the path is outside the ${LABEL[p]} profile.`
+const NO_PROFILE =
+  'workspace-os blocked this: Work folders are off limits in a session with no profile. To use them, start the session from the Work environment.'
+const CHECK_FAILED = 'workspace-os blocked this: its folder check failed.'
+
 // The paths a call would touch. A shell command also runs in the session's folder,
 // and a search with no path searches it, so the folder itself counts.
 function touched(tool: string, e: Record<string, unknown>, cwd: string): string[] | null {
@@ -68,13 +75,10 @@ export const register: Register = (on, options) => {
   on('tool.call', ($, e, next) => {
     const paths = touched(e.tool, e as unknown as Record<string, unknown>, cwd)
     if (paths && paths.some(inBlocked)) {
-      const why = profile
-        ? `that is outside the ${LABEL[profile]} profile`
-        : 'this session has no profile, so Work folders are blocked (start it from the Work environment)'
-      return { deny: `workspace-os: ${why}, so it was not run.` }
+      return { deny: profile ? outsideProfile(profile) : NO_PROFILE }
     }
     return next(e)
-  }).catch(($, e, next) => (next.called ? next(e) : { deny: 'workspace-os: its folder check failed, so the call was not run.' }))
+  }).catch(($, e, next) => (next.called ? next(e) : { deny: CHECK_FAILED }))
 
   // The gate: these always ask you. A plugin's ask is answered by a person, never by
   // an auto-mode classifier or a saved always-allow rule. A deny below stays a deny.
