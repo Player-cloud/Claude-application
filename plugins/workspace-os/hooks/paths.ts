@@ -58,3 +58,15 @@ export function pathsInCommand(command: string): string[] {
   for (const m of command.matchAll(/(?:^|[\s=("'`])(~[\\/][^\s"'`|;&<>()]*)/g)) add(m[1])
   return found
 }
+
+// secret-shield keeps each project's real secrets in ~/.claude/secret-shield/<slug>.env,
+// the slug being the project's folder path with every run of other characters turned
+// into "-". A file there belongs to a root when its name is the root's slug, or the
+// slug followed by "-" (a project inside it). All three arguments are normalised.
+export function isSecretVaultOf(path: string, home: string, root: string): boolean {
+  const dir = `${home}/.claude/secret-shield/`
+  if (!path.startsWith(dir)) return false
+  const name = path.slice(dir.length)
+  const slug = root.replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '')
+  return slug !== '' && (name === `${slug}.env` || name.startsWith(`${slug}-`))
+}

@@ -1,7 +1,7 @@
 import type { EngineInterface, Register } from 'claude-code'
 
 import { MODE_HELP, MODES, SCRATCH_TEXT, modeAtStart, modeFromName, type ModeId } from './modes'
-import { isUnder, norm, parseRoots, pathsInCommand, resolve } from './paths'
+import { isSecretVaultOf, isUnder, norm, parseRoots, pathsInCommand, resolve } from './paths'
 import { gateReason } from './rules'
 import { cleanRelative, countOf, draftName, excerpt, hasSecret, isHidden, isPrivate, linksTo, maskSecrets, noteName, score, versionOf } from './vault'
 
@@ -110,7 +110,11 @@ export const register: Register = (on, options) => {
 
   // No profile fails closed: Work is blocked, so a forgotten environment can't reach it.
   const blocked = () => (profile === 'work' ? roots.personal : roots.work)
-  const inBlocked = (path: string) => blocked().some(root => isUnder(resolve(path, cwd, home), root))
+  // The other profile's secret-shield vault files count as its folders too.
+  const inBlocked = (path: string) => {
+    const p = resolve(path, cwd, home)
+    return blocked().some(root => isUnder(p, root) || isSecretVaultOf(p, home, root))
+  }
 
   // Taste notes live in a Preferences folder inside each profile folder, so the
   // boundary above already keeps one profile's taste from the other.

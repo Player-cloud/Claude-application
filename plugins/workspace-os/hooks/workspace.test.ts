@@ -98,6 +98,39 @@ test('a shell command naming a Work path is refused; an ordinary one runs', { op
   expect(seen.ran).toEqual(['Bash'])
 })
 
+// secret-shield's vault files: ~/.claude/secret-shield/<project path as a slug>.env
+const VAULTS = 'C:/Users/me/.claude/secret-shield'
+
+test('the other profile\'s secret-shield vault files are refused; its own are not', { options: ROOTS }, async ($, on) => {
+  const seen = engine(on, env('personal'))
+  await start($, PERSONAL_APP)
+  const blocked = await read($, `${VAULTS}/C-Users-me-Code-work-client.env`)
+  await read($, `${VAULTS}/C-Users-me-Code-work.env`)
+  await read($, `${VAULTS}/D-Clients-acme.env`)
+  await $.tool.call({ tool: 'Bash', command: 'cat ~/.claude/secret-shield/C-Users-me-Code-work-client.env' } as never)
+  expect(seen.ran).toEqual([])
+  expect(JSON.stringify(blocked)).toContain('workspace-os blocked this: the path is outside the Personal profile.')
+  await read($, `${VAULTS}/C-Users-me-Code-personal-app.env`)
+  await read($, `${VAULTS}/C-Users-me-Code-workshop-x.env`)
+  expect(seen.ran).toEqual(['Read', 'Read'])
+})
+
+test('Work is refused Personal\'s vault files but reads its own', { options: ROOTS }, async ($, on) => {
+  const seen = engine(on, env('work'))
+  await start($, WORK_APP)
+  await read($, `${VAULTS}/C-Users-me-Code-personal-app.env`)
+  await read($, `${VAULTS}/C-Users-me-Code-work-client.env`)
+  expect(seen.ran).toEqual(['Read'])
+})
+
+test('with no profile, Work\'s vault files are refused', { options: ROOTS }, async ($, on) => {
+  const seen = engine(on, env(undefined))
+  await start($, PERSONAL_APP)
+  await read($, `${VAULTS}/C-Users-me-Code-work-client.env`)
+  await read($, `${VAULTS}/C-Users-me-Code-personal-app.env`)
+  expect(seen.ran).toEqual(['Read'])
+})
+
 test('with no profile, Work is blocked and Personal works', { options: ROOTS }, async ($, on) => {
   const seen = engine(on, env(undefined))
   await start($, PERSONAL_APP)
