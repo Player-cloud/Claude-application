@@ -23,7 +23,9 @@ const stage = atom({ plugin: 'control-center', key: 'stage' } as const, null as 
 const favourites = atom({ plugin: 'control-center', key: 'favourites' } as const, [] as string[])
 const expanded = atom({ plugin: 'control-center', key: 'expanded' } as const, null as string | null)
 const pending = atom({ plugin: 'control-center', key: 'pending' } as const, null as PendingSetting | null)
-const autoOpen = atom({ plugin: 'control-center', key: 'autoOpen' } as const, true)
+// Quiet by default: the pane opens when asked (/cc, /control-center), unless the person turns
+// "open at start" on in the pane itself.
+const autoOpen = atom({ plugin: 'control-center', key: 'autoOpen' } as const, false)
 const notice = atom({ plugin: 'control-center', key: 'notice' } as const, null as string | null)
 
 // What the toolkit's other mods publish (read only; each mod owns its own).
@@ -395,7 +397,7 @@ export const register: Register = on => {
     if (cached) await update($, env, () => ({ ...EMPTY_ENV, ...cached, project: null, commands: [] }))
     const favs = (await $.store.get('favourites')) as string[] | undefined
     if (favs) await update($, favourites, () => favs)
-    const open = ((await $.store.get('autoOpen')) as boolean | undefined) ?? true
+    const open = ((await $.store.get('autoOpen')) as boolean | undefined) ?? false
     await update($, autoOpen, () => open)
 
     void refreshAll($, true)
