@@ -4,7 +4,7 @@ const ROOT = 'C:/Users/test/Downloads/my-app'
 const MONDAY_10AM = new Date(2026, 9, 5, 10, 0).getTime()
 const FRIDAY_4PM = new Date(2026, 9, 9, 16, 0).getTime()
 
-function engine(on: any, opts: { now: number; status?: string; mtimeMs?: number; docs?: string[]; confirm?: string }) {
+function engine(on: any, opts: { now: number; status?: string; mtimeMs?: number; docs?: string[]; confirm?: string; commands?: string[] }) {
   const store: Record<string, unknown> = {}
   const ran: string[] = []
   const asked: string[] = []
@@ -15,6 +15,8 @@ function engine(on: any, opts: { now: number; status?: string; mtimeMs?: number;
     return { result: { questions: e.questions, answers: { [q]: opts.confirm ?? 'Run it' } }, isError: false } as never
   })
   on('session.root', () => ({ value: ROOT }))
+  // The commands this session has; by default all three the nudges suggest.
+  on('command.list', () => ({ value: (opts.commands ?? ['ship-check', 'next-part', 'manager-update']).map(name => ({ name })) }) as never)
   on('clock.now', () => ({ value: opts.now }))
   on('clock.every', () => ({ value: undefined }) as never)
   on('store.get', (_$: any, e: any) => ({ value: store[e.key] }))
@@ -101,6 +103,21 @@ test('Friday afternoon suggests the manager update', async ($, on) => {
   await $.session.start({ source: 'startup', cwd: ROOT, surface: null, isInteractive: true } as never)
   const ui = await band($, 'terminal')
   expect(await ui.find({ text: /Friday afternoon/ } as never)).toBeDefined()
+})
+
+test('a command this session lacks is never suggested', async ($, on) => {
+  engine(on, { now: FRIDAY_4PM, commands: ['ship-check', 'next-part'] })
+  await $.session.start({ source: 'startup', cwd: ROOT, surface: null, isInteractive: true } as never)
+  const ui = await band($, 'terminal')
+  expect(await ui.find({ text: /Friday afternoon/ } as never)).toBeUndefined()
+  expect(await ui.find({ key: 'nudge-run' })).toBeUndefined()
+})
+
+test('a command a plugin provides (plugin:name) still counts', async ($, on) => {
+  engine(on, { now: MONDAY_10AM, commands: ['my-toolkit:ship-check'] })
+  await $.tool.call({ tool: 'Bash', command: 'git push origin main' } as never)
+  const ui = await band($, 'terminal')
+  expect(await ui.find({ text: /You just pushed/ } as never)).toBeDefined()
 })
 
 test('/nudge later silences the current suggestion; another kind still shows', async ($, on) => {

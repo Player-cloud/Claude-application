@@ -35,9 +35,22 @@ async function isSnoozed($: any, id: string): Promise<boolean> {
   return snoozed[id] === today(await $.clock.now())
 }
 
-// Shows a suggestion unless it was put off today; a newer one replaces an older one.
+// True when this session has the command (as typed, or a plugin's `plugin:name`).
+// If the list can't be read, assume it's there rather than go quiet.
+async function hasCommand($: any, name: string): Promise<boolean> {
+  try {
+    const list: { name: string }[] = await $.command.list()
+    return list.some(c => c.name === name || c.name.endsWith(`:${name}`))
+  } catch {
+    return true
+  }
+}
+
+// Shows a suggestion unless it was put off today or its command isn't installed here;
+// a newer one replaces an older one.
 async function suggest($: any, next: Suggestion): Promise<void> {
   if (await isSnoozed($, next.id)) return
+  if (!(await hasCommand($, next.command))) return
   await update($, suggestion, () => next)
 }
 
