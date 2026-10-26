@@ -1,0 +1,198 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="connect-src 'none'; frame-src 'none'; object-src 'none'; form-action 'none'; font-src 'none'">
+<title>Studio</title>
+<style>
+  :root {
+    --bg: #f6f5f2; --surface: #ffffff; --text: #1f1e1c; --muted: #6b6862; --line: #e2dfd8;
+    --accent: #2f5d8a; --badge: #f3e3c3; --badge-text: #6a4a0c; --shadow: 0 1px 2px rgba(0,0,0,.06);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg: #161615; --surface: #1f1f1d; --text: #ecebe7; --muted: #a29f97; --line: #34332f;
+      --accent: #8db4dc; --badge: #4a3a17; --badge-text: #f1d9a6; --shadow: none; }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text);
+    font: 15px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  header { padding: 28px 16px 12px; max-width: 1100px; margin: 0 auto; }
+  h1 { margin: 0; font-size: 22px; font-weight: 600; letter-spacing: -.01em; }
+  #meta { color: var(--muted); margin: 4px 0 0; font-size: 13px; }
+  .toolbar { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 16px; }
+  .toolbar input, .toolbar select { font: inherit; color: var(--text); background: var(--surface);
+    border: 1px solid var(--line); border-radius: 6px; padding: 7px 10px; min-width: 0; }
+  .toolbar input { flex: 1 1 220px; }
+  main { max-width: 1100px; margin: 0 auto; padding: 0 16px 48px; }
+  section.type { border-top: 1px solid var(--line); padding: 20px 0 8px; }
+  section.type h2 { margin: 0; font-size: 17px; font-weight: 600; }
+  section.type h2 .count { color: var(--muted); font-weight: 400; margin-left: 6px; }
+  .definition { margin: 4px 0 0; color: var(--muted); max-width: 70ch; }
+  .traits { list-style: none; padding: 0; margin: 8px 0 0; display: flex; flex-wrap: wrap; gap: 6px; }
+  .traits li, .tags span { font-size: 12px; border: 1px solid var(--line); border-radius: 999px; padding: 1px 8px; color: var(--muted); }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 14px; margin-top: 14px; }
+  .card { all: unset; cursor: pointer; display: flex; flex-direction: column; background: var(--surface);
+    border: 1px solid var(--line); border-radius: 8px; overflow: hidden; box-shadow: var(--shadow); }
+  .card:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .thumb { aspect-ratio: 4 / 3; background: var(--bg); display: flex; align-items: center; justify-content: center;
+    color: var(--muted); font-size: 13px; overflow: hidden; }
+  .thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .card-body { padding: 8px 10px 10px; display: flex; flex-direction: column; gap: 4px; }
+  .card-title { font-weight: 600; font-size: 14px; }
+  .tags { display: flex; flex-wrap: wrap; gap: 4px; }
+  .badge { align-self: flex-start; font-size: 11px; background: var(--badge); color: var(--badge-text); border-radius: 4px; padding: 0 6px; }
+  .empty { color: var(--muted); padding: 32px 0; }
+  .notice { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 16px; margin-top: 16px; }
+  dialog { border: 1px solid var(--line); border-radius: 10px; padding: 0; width: min(860px, calc(100vw - 32px));
+    max-height: calc(100vh - 32px); background: var(--surface); color: var(--text); }
+  dialog::backdrop { background: rgba(0,0,0,.45); }
+  .detail { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+  .detail .image { background: var(--bg); display: flex; align-items: flex-start; justify-content: center; min-height: 200px; }
+  .detail .image img { width: 100%; height: auto; display: block; }
+  .detail .text { padding: 18px 20px 20px; overflow-wrap: anywhere; }
+  .detail h3 { margin: 0 0 2px; font-size: 18px; }
+  .detail h4 { margin: 16px 0 4px; font-size: 13px; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); }
+  .detail p.body { margin: 0; white-space: pre-wrap; }
+  .detail .facts { color: var(--muted); font-size: 13px; margin: 0; }
+  .detail a { color: var(--accent); }
+  .close { position: sticky; float: right; top: 8px; margin: 8px; font: inherit; background: var(--surface);
+    color: var(--text); border: 1px solid var(--line); border-radius: 6px; padding: 2px 10px; cursor: pointer; }
+  @media (max-width: 640px) { .detail { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+<header>
+  <h1>Studio</h1>
+  <p id="meta"></p>
+  <div class="toolbar">
+    <input id="search" type="search" placeholder="Search titles and notes" aria-label="Search">
+    <select id="tag" aria-label="Filter by tag"><option value="">All tags</option></select>
+  </div>
+</header>
+<main id="library"></main>
+<dialog id="detail" aria-label="Design details"></dialog>
+
+<script src="library.js"></script>
+<script>
+(function () {
+  'use strict'
+  // All library text goes in through textContent, never innerHTML.
+  function el(tag, props, children) {
+    var node = document.createElement(tag)
+    if (props) for (var k in props) {
+      if (k === 'text') node.textContent = props[k]
+      else if (k === 'class') node.className = props[k]
+      else node.setAttribute(k, props[k])
+    }
+    (children || []).forEach(function (c) { if (c) node.appendChild(c) })
+    return node
+  }
+  function safeImage(path) {
+    return typeof path === 'string' && /^items\/[^?#]+$/.test(path) && path.indexOf('..') === -1 ? path : null
+  }
+  function safeLink(url) {
+    return typeof url === 'string' && /^https?:\/\//i.test(url) ? url : null
+  }
+
+  var data = window.STUDIO
+  var root = document.getElementById('library')
+  var meta = document.getElementById('meta')
+  if (!data || !Array.isArray(data.items)) {
+    meta.textContent = 'No library yet.'
+    root.appendChild(el('div', { class: 'notice', text: 'There is no library.js in this folder yet. Drop designs into inbox/ and ask Claude to "sort my new designs".' }))
+    return
+  }
+
+  var types = (data.types || []).concat([{ id: 'unsorted', name: 'Unsorted', definition: 'Designs that don\'t fit a type yet.', traits: [] }])
+  var written = data.written ? new Date(data.written) : null
+  meta.textContent = data.items.length + (data.items.length === 1 ? ' design' : ' designs') +
+    (written && !isNaN(written) ? ' · last sorted ' + written.toLocaleString() : '')
+
+  var tags = {}
+  data.items.forEach(function (it) { (it.tags || []).forEach(function (t) { tags[t] = true }) })
+  var tagSelect = document.getElementById('tag')
+  Object.keys(tags).sort().forEach(function (t) { tagSelect.appendChild(el('option', { value: t, text: t })) })
+  var search = document.getElementById('search')
+
+  function matches(it, q, tag) {
+    if (tag && (it.tags || []).indexOf(tag) === -1) return false
+    if (!q) return true
+    var s = it.sections || {}
+    var hay = [it.title, s.note, s.observed, s.inferred, s.reaction, (it.tags || []).join(' ')].join('\n').toLowerCase()
+    return hay.indexOf(q) !== -1
+  }
+
+  function card(it) {
+    var img = safeImage(it.image)
+    var thumb = el('div', { class: 'thumb' }, [img ? el('img', { src: img, alt: '', loading: 'lazy' }) : null])
+    if (!img) thumb.textContent = 'No image'
+    var body = el('div', { class: 'card-body' }, [
+      el('span', { class: 'card-title', text: it.title }),
+      it.status === 'not-inspected' ? el('span', { class: 'badge', text: 'Not inspected' }) : null,
+      (it.tags || []).length ? el('div', { class: 'tags' }, it.tags.map(function (t) { return el('span', { text: t }) })) : null
+    ])
+    var button = el('button', { class: 'card', type: 'button', 'data-id': it.id }, [thumb, body])
+    button.addEventListener('click', function () { open(it) })
+    return button
+  }
+
+  function render() {
+    var q = search.value.trim().toLowerCase()
+    var tag = tagSelect.value
+    root.textContent = ''
+    var shown = 0
+    types.forEach(function (t) {
+      var list = data.items.filter(function (it) { return it.type === t.id && matches(it, q, tag) })
+      if (!list.length && (t.id === 'unsorted' || q || tag)) return
+      shown += list.length
+      root.appendChild(el('section', { class: 'type', 'data-type': t.id }, [
+        el('h2', null, [document.createTextNode(t.name), el('span', { class: 'count', text: String(list.length) })]),
+        t.definition ? el('p', { class: 'definition', text: t.definition }) : null,
+        (t.traits || []).length ? el('ul', { class: 'traits' }, t.traits.map(function (x) { return el('li', { text: x }) })) : null,
+        list.length ? el('div', { class: 'grid' }, list.map(card)) : el('p', { class: 'empty', text: 'No designs in this type yet.' })
+      ]))
+    })
+    if (!shown && (q || tag)) root.appendChild(el('p', { class: 'empty', text: 'Nothing matches.' }))
+  }
+
+  var dialog = document.getElementById('detail')
+  function open(it) {
+    var s = it.sections || {}
+    var type = types.filter(function (t) { return t.id === it.type })[0]
+    var img = safeImage(it.image)
+    var link = safeLink(it.link)
+    var facts = [type ? type.name : it.type, it.added ? 'added ' + it.added : '', it.source].filter(Boolean).join(' · ')
+    function part(label, text, fallback) {
+      return [el('h4', { text: label }), el('p', { class: 'body', text: text || fallback })]
+    }
+    var close = el('button', { class: 'close', type: 'button', text: 'Close' })
+    close.addEventListener('click', function () { dialog.close() })
+    var text = el('div', { class: 'text' }, [
+      el('h3', { text: it.title }),
+      el('p', { class: 'facts', text: facts }),
+      it.status === 'not-inspected' ? el('p', { class: 'badge', text: 'Not inspected: Claude couldn\'t see this design. Add a screenshot.' }) : null,
+      link ? el('p', { class: 'facts' }, [el('a', { href: link, target: '_blank', rel: 'noopener noreferrer', text: link })]) : null
+    ].concat(
+      part('Your note', s.note, '—'),
+      part('Observed', s.observed, '—'),
+      part('Inferred', s.inferred, '—'),
+      part('Your reaction', s.reaction, 'No reaction yet.')
+    ))
+    dialog.textContent = ''
+    dialog.appendChild(close)
+    dialog.appendChild(el('div', { class: 'detail' }, [
+      el('div', { class: 'image' }, [img ? el('img', { src: img, alt: it.title }) : el('p', { class: 'empty', text: 'No image' })]),
+      text
+    ]))
+    dialog.showModal()
+  }
+  dialog.addEventListener('click', function (e) { if (e.target === dialog) dialog.close() })
+
+  search.addEventListener('input', render)
+  tagSelect.addEventListener('change', render)
+  render()
+})()
+</script>
+</body>
+</html>

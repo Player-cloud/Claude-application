@@ -1,5 +1,7 @@
 # Workspace OS (my-toolkit)
 
+This repo also holds [Learning Studio](studio/README.md), a design reference library viewer that works alongside the plugins.
+
 Workspace OS as a plugin pack for Claude Code, running in the Claude Desktop Code tab on a Pro plan. It replaces the separate Electron app, which Anthropic requires to use a paid API key.
 
 ## Plugins
