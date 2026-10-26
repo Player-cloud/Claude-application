@@ -1,0 +1,13 @@
+{
+  "name": "learning-studio",
+  "private": true,
+  "type": "module",
+  "description": "Learning Studio release 1: a design reference library viewer, sorting instructions and tests",
+  "scripts": {
+    "sample": "node tools/assemble.mjs",
+    "test": "node --test \"test/*.test.mjs\""
+  },
+  "devDependencies": {
+    "playwright": "1.63.0"
+  }
+}
