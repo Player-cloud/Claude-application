@@ -15,7 +15,7 @@ function engine(on: any, opts: { now: number; status?: string; mtimeMs?: number;
     return { result: { questions: e.questions, answers: { [q]: opts.confirm ?? 'Run it' } }, isError: false } as never
   })
   on('session.root', () => ({ value: ROOT }))
-  // The commands this session has; by default all three the nudges suggest.
+  // The commands this session has; by default the two the nudges suggest, plus manager-update, which they no longer do.
   on('command.list', () => ({ value: (opts.commands ?? ['ship-check', 'next-part', 'manager-update']).map(name => ({ name })) }) as never)
   on('clock.now', () => ({ value: opts.now }))
   on('clock.every', () => ({ value: undefined }) as never)
@@ -98,18 +98,19 @@ test('a clean project with a plan suggests the next part', async ($, on) => {
   expect(await ui.find({ text: /next part of the plan/ } as never)).toBeDefined()
 })
 
-test('Friday afternoon suggests the manager update', async ($, on) => {
+test('no clock nudge: Friday afternoon suggests nothing, in any profile', async ($, on) => {
   engine(on, { now: FRIDAY_4PM })
   await $.session.start({ source: 'startup', cwd: ROOT, surface: null, isInteractive: true } as never)
   const ui = await band($, 'terminal')
-  expect(await ui.find({ text: /Friday afternoon/ } as never)).toBeDefined()
+  expect(await ui.find({ text: /Friday|manager/ } as never)).toBeUndefined()
+  expect(await ui.find({ key: 'nudge-run' })).toBeUndefined()
 })
 
 test('a command this session lacks is never suggested', async ($, on) => {
-  engine(on, { now: FRIDAY_4PM, commands: ['ship-check', 'next-part'] })
-  await $.session.start({ source: 'startup', cwd: ROOT, surface: null, isInteractive: true } as never)
+  engine(on, { now: MONDAY_10AM, commands: ['next-part'] })
+  await $.tool.call({ tool: 'Bash', command: 'git push origin main' } as never)
   const ui = await band($, 'terminal')
-  expect(await ui.find({ text: /Friday afternoon/ } as never)).toBeUndefined()
+  expect(await ui.find({ text: /You just pushed/ } as never)).toBeUndefined()
   expect(await ui.find({ key: 'nudge-run' })).toBeUndefined()
 })
 
