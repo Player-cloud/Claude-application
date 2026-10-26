@@ -19,7 +19,7 @@ export type Flow = {
 }
 
 /** A settings change waiting for the person to confirm it. */
-export type PendingSetting = { kind: 'output-style'; style: 'off' | 'learning' | 'explanatory' } | { kind: 'classic-panel-off' }
+export type PendingSetting = { kind: 'output-style'; style: 'off' | 'learning' | 'explanatory' }
 
 export type EnvSnapshot = {
   project: {
