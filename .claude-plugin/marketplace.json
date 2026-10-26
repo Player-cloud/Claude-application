@@ -35,7 +35,7 @@
     {
       "name": "learner",
       "source": "./plugins/learner",
-      "description": "Finds tasks you keep asking Claude for and proposes a skill for each, plus lessons from one project worth sharing with all; nothing is added without your approval."
+      "description": "Finds tasks you keep asking Claude for in this profile and proposes a project skill for each. Shows what it would send before any model call; writes only into the current project, each write approved."
     },
     {
       "name": "nudges",

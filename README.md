@@ -9,7 +9,7 @@ Workspace OS as a plugin pack for Claude Code, running in the Claude Desktop Cod
 | `control-center` | The pack's one pane: the work stage (Brief, Plan, Build, Review, Ship, Report), a search, and every skill, plugin and workflow with one-click runs |
 | `deploy-status` | Latest Vercel deployments in the status line; `/deploy-status` lists them |
 | `handoff` | Picks up the plan in `.claude/handoff.md` and gives it to Claude with the first message |
-| `learner` | Finds tasks you keep asking for and proposes a skill for each; nothing is added without your approval |
+| `learner` | Finds tasks you keep asking for in this profile (or, without one, this project) and proposes a skill for each. It shows what it would send before any model call, and writes approved skills and lessons only into the current project, never `~/.claude` |
 | `nudges` | Suggests the next command above the prompt, with a Run button that asks first |
 | `secret-shield` | Replaces secrets in your messages with placeholders before Claude sees them and keeps the values outside your projects |
 | `token-weather` | A context-window forecast in the band above the prompt |
@@ -34,4 +34,5 @@ Add this folder as a marketplace (`claude plugin marketplace add <this folder>`)
 - Mod tests: `claude plugin test plugins/<name>` for each plugin.
 - Manifest and hooks: `claude plugin validate plugins/<name>`.
 - secret-shield's scrubber, which starts real processes: `node --test plugins/secret-shield/hooks/scrub.spec.mjs`.
+- learner's collector, run against a throwaway home folder: `node --test plugins/learner/hooks/collect.spec.mjs`.
 - The two copies of the secret detector (`detect.ts` in secret-shield and workspace-os) must match; secret-shield's is the source: `node --test plugins/workspace-os/hooks/detect-copy.spec.mjs`.

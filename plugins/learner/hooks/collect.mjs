@@ -1,8 +1,10 @@
-// learner collector: gathers what the person typed to Claude across every
-// project's transcripts, and each project's memory notes, as one JSON object
-// on stdout. Run by the learner mod (transcripts can exceed what a mod may read).
+// learner collector: gathers what the person typed to Claude in sessions that
+// ran inside the given folders, and those projects' memory notes, as one JSON
+// object on stdout. Run by the learner mod (transcripts can exceed what a mod
+// may read). Every transcript line records the folder its session ran in, so a
+// session outside the folders (the other profile, say) is never read.
 //
-// Usage: node collect.mjs [--days 60] [--max 400]
+// Usage: node collect.mjs --roots "C:/code/personal;D:/notes" [--days 60] [--max 400]
 
 import { readFileSync, readdirSync, existsSync, statSync } from 'node:fs'
 import { join, basename } from 'node:path'
@@ -16,6 +18,19 @@ const opt = (name, fallback) => {
 const days = opt('--days', 60)
 const max = opt('--max', 400)
 const since = Date.now() - days * 86_400_000
+
+// Windows paths are case-insensitive and take either slash: compare one form.
+const norm = p => String(p).trim().replace(/\\/g, '/').replace(/\/+$/, '').toLowerCase()
+const rootsAt = args.indexOf('--roots')
+const roots = (rootsAt >= 0 ? String(args[rootsAt + 1] ?? '') : '').split(';').map(norm).filter(Boolean)
+if (roots.length === 0) {
+  process.stderr.write('no folders to scan: pass --roots\n')
+  process.exit(2)
+}
+const inRoots = cwd => {
+  const p = norm(cwd)
+  return roots.some(r => p === r || p.startsWith(`${r}/`))
+}
 
 const CLAUDE = join(homedir(), '.claude')
 const PROJECTS = join(CLAUDE, 'projects')
@@ -51,6 +66,8 @@ function typed(o) {
 
 const messages = []
 const seen = new Set()
+// Project folders with at least one session inside the roots; only their memory is read.
+const inScope = new Set()
 for (const dir of existsSync(PROJECTS) ? readdirSync(PROJECTS) : []) {
   const project = projectName(dir)
   for (const file of walk(join(PROJECTS, dir))) {
@@ -62,6 +79,8 @@ for (const dir of existsSync(PROJECTS) ? readdirSync(PROJECTS) : []) {
       } catch {
         continue
       }
+      if (!o.cwd || !inRoots(o.cwd)) continue
+      inScope.add(dir)
       const text = typed(o)
       if (!text) continue
       const at = Date.parse(o.timestamp ?? '')
@@ -78,7 +97,7 @@ for (const dir of existsSync(PROJECTS) ? readdirSync(PROJECTS) : []) {
 messages.sort((a, b) => a.date.localeCompare(b.date))
 
 const memory = []
-for (const dir of existsSync(PROJECTS) ? readdirSync(PROJECTS) : []) {
+for (const dir of inScope) {
   const mem = join(PROJECTS, dir, 'memory')
   if (!existsSync(mem)) continue
   for (const f of readdirSync(mem)) {
@@ -87,7 +106,4 @@ for (const dir of existsSync(PROJECTS) ? readdirSync(PROJECTS) : []) {
   }
 }
 
-const shared = join(CLAUDE, 'CLAUDE.md')
-const sharedLessons = existsSync(shared) ? readFileSync(shared, 'utf8') : ''
-
-process.stdout.write(JSON.stringify({ messages: messages.slice(-max), memory, sharedLessons }))
+process.stdout.write(JSON.stringify({ messages: messages.slice(-max), memory }))
