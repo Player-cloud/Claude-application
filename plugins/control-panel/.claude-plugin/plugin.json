@@ -1,9 +1,0 @@
-{
-  "name": "control-panel",
-  "version": "1.2.1",
-  "description": "A pane with the work pipeline (Brief, Plan, Build, Review, Ship, Report) as one-click buttons, and a search over every skill and command.",
-  "types": "./types/index.d.ts",
-  "author": {
-    "name": "Joshua Oduore"
-  }
-}

@@ -1,7 +1,7 @@
 {
   "name": "nudges",
-  "version": "1.4.0",
-  "description": "Suggests the right command at the right moment above the prompt, with a one-click Run: ship-check after a commit or push, next-part on a clean project, finishing old uncommitted work, and the manager update on Friday afternoons.",
+  "version": "1.5.0",
+  "description": "Suggests the right command at the right moment above the prompt, with a one-click Run: ship-check after a commit or push, next-part on a clean project, and finishing old uncommitted work. No clock-based nudges.",
   "author": {
     "name": "Joshua Oduore"
   },

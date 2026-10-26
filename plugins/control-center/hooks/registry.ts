@@ -55,7 +55,7 @@ export type Workflow = {
   ask?: string
 }
 
-export type ModuleId = 'secret-shield' | 'token-weather' | 'control-panel' | 'nudges' | 'deploy-status' | 'handoff' | 'learner'
+export type ModuleId = 'secret-shield' | 'token-weather' | 'nudges' | 'deploy-status' | 'handoff' | 'learner'
 
 // ---------------------------------------------------------------- live environment
 
@@ -552,7 +552,6 @@ const TOOLKIT = '@my-toolkit'
 export const PLUGINS: PluginInfo[] = [
   { id: `secret-shield${TOOLKIT}`, name: 'secret-shield', category: 'Toolkit', description: 'Hides secrets you paste; scrubs old transcripts.' },
   { id: `token-weather${TOOLKIT}`, name: 'token-weather', category: 'Toolkit', description: 'Context and usage forecast above the prompt.' },
-  { id: `control-panel${TOOLKIT}`, name: 'control-panel', category: 'Toolkit', description: 'The original pipeline pane (the Control Center replaces it).' },
   { id: `nudges${TOOLKIT}`, name: 'nudges', category: 'Toolkit', description: 'One-click suggestions at the right moment.' },
   { id: `deploy-status${TOOLKIT}`, name: 'deploy-status', category: 'Toolkit', description: 'Latest Vercel deployments in the status line.' },
   { id: `handoff${TOOLKIT}`, name: 'handoff', category: 'Toolkit', description: 'Picks up the Cowork handoff.' },

@@ -4,7 +4,7 @@
     "name": "Joshua Oduore"
   },
   "metadata": {
-    "description": "Workspace OS for the Claude Code tab: secret protection, context forecast, pipeline control panel, deploy status, Cowork handoff and a skill learner. Quiet by default."
+    "description": "Workspace OS for the Claude Code tab: secret protection, context forecast, the Control Center, deploy status, Cowork handoff and a skill learner. Quiet by default."
   },
   "plugins": [
     {
@@ -23,11 +23,6 @@
       "description": "A live forecast of the context window, shown in the band above the prompt."
     },
     {
-      "name": "control-panel",
-      "source": "./plugins/control-panel",
-      "description": "A pane with the work pipeline (Brief, Plan, Build, Review, Ship, Report) as one-click buttons, and a search over every skill and command."
-    },
-    {
       "name": "deploy-status",
       "source": "./plugins/deploy-status",
       "description": "Shows the project's latest Vercel production and preview deployments in the status line, read from GitHub; /deploy-status lists them with links."
@@ -40,12 +35,12 @@
     {
       "name": "learner",
       "source": "./plugins/learner",
-      "description": "Finds tasks you keep asking Claude for and proposes a skill for each, plus lessons from one project worth sharing with all; nothing is added without your approval."
+      "description": "Finds tasks you keep asking Claude for in this profile and proposes a project skill for each. Shows what it would send before any model call; writes only into the current project, each write approved."
     },
     {
       "name": "nudges",
       "source": "./plugins/nudges",
-      "description": "Suggests the right command at the right moment above the prompt, with a one-click Run: ship-check after a commit or push, next-part on a clean project, finishing old uncommitted work, and the manager update on Friday afternoons."
+      "description": "Suggests the right command at the right moment above the prompt, with a one-click Run: ship-check after a commit or push, next-part on a clean project, and finishing old uncommitted work."
     },
     {
       "name": "workspace-os",

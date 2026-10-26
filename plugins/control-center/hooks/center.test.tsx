@@ -16,7 +16,6 @@ const PLUGIN_LIST = [
   ['prisma@claude-plugins-official', true],
   ['learning-output-style@claude-plugins-official', true],
   ['explanatory-output-style@claude-plugins-official', true],
-  ['control-panel@my-toolkit', true],
   ['secret-shield@my-toolkit', true],
   ['token-weather@my-toolkit', true],
   ['nudges@my-toolkit', true],
@@ -339,10 +338,7 @@ test('output style selector turns one style on and the other off, after confirmi
   await ui.press({ key: 'confirm-setting' })
   expect(w.processes).toContainEqual(['claude', 'plugin', 'enable', 'learning-output-style@claude-plugins-official'])
   expect(w.processes).toContainEqual(['claude', 'plugin', 'disable', 'explanatory-output-style@claude-plugins-official'])
-
-  await ui.press({ key: 'classic-off' })
-  await ui.press({ key: 'confirm-setting' })
-  expect(w.processes).toContainEqual(['claude', 'plugin', 'disable', 'control-panel@my-toolkit'])
+  expect(w.processes.some(a => a.includes('control-panel@my-toolkit'))).toBe(false)
 })
 
 // ---------------------------------------------------------------- search and favourites

@@ -58,7 +58,6 @@ export type Model = {
   learnerWaiting: number
   deploy: { rows: { env: string; sha: string; state: string; ago: string; url?: string }[]; headDeployed: string | null; repo: string | null } | null
   outputStyle: 'off' | 'learning' | 'explanatory' | 'both' | 'unknown'
-  classicPanelOn: boolean | null
 }
 
 export type Actions = {
@@ -663,21 +662,13 @@ function SettingsPage(E: E, m: Model, a: Actions) {
         <E.Text color="inactive">Only one style can be on. Changes apply to new sessions.</E.Text>
       </E.Box>
 
-      <E.Box flexDirection="column">
-        {Heading(E, 'set-h-classic', 'Classic control panel')}
-        <E.Text>{m.classicPanelOn === null ? 'Checking…' : m.classicPanelOn ? 'On: it also opens its own pane each session.' : 'Off.'}</E.Text>
-        {m.classicPanelOn ? <E.Button key="classic-off" label="Turn off the classic panel" plain onPress={() => a.requestSetting({ kind: 'classic-panel-off' })} /> : null}
-      </E.Box>
-
       {pending ? (
         <E.Box key="pending" flexDirection="column" borderStyle="round" borderColor="claude" paddingX={1}>
           <E.Text bold>Confirm</E.Text>
           <E.Text>
-            {pending.kind === 'output-style'
-              ? pending.style === 'off'
-                ? 'Turn off both output-style plugins for new sessions.'
-                : `Turn on ${pending.style}-output-style and turn off the other one, for new sessions.`
-              : 'Turn off control-panel@my-toolkit for new sessions. It stays installed; you can turn it back on.'}
+            {pending.style === 'off'
+              ? 'Turn off both output-style plugins for new sessions.'
+              : `Turn on ${pending.style}-output-style and turn off the other one, for new sessions.`}
           </E.Text>
           <E.Box flexDirection="row" gap={1}>
             <E.Button key="confirm-setting" label="⚡ APPLY" variant="primary" onPress={() => a.confirmSetting()} />

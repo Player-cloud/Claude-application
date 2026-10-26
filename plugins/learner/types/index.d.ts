@@ -17,10 +17,20 @@ export type Proposal = {
   status: ProposalStatus
 }
 
+/** What Send would pass to the model, shown before anything is sent. */
+export type Preview = {
+  scope: string
+  requests: number
+  notes: number
+  projects: string[]
+  tokens: number
+}
+
 export type Scan = {
-  phase: 'idle' | 'scanning' | 'done' | 'error'
+  phase: 'idle' | 'scanning' | 'preview' | 'done' | 'error'
   message: string
   proposals: Proposal[]
+  preview?: Preview
 }
 
 declare module 'claude-code' {

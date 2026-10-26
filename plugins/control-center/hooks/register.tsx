@@ -236,12 +236,8 @@ async function applySetting($: any): Promise<void> {
   const p = await read($, pending)
   if (!p) return
   const steps: string[][] = []
-  if (p.kind === 'output-style') {
-    steps.push(['claude', 'plugin', p.style === 'learning' ? 'enable' : 'disable', OUTPUT_STYLE_PLUGINS.learning])
-    steps.push(['claude', 'plugin', p.style === 'explanatory' ? 'enable' : 'disable', OUTPUT_STYLE_PLUGINS.explanatory])
-  } else {
-    steps.push(['claude', 'plugin', 'disable', `control-panel${TOOLKIT}`])
-  }
+  steps.push(['claude', 'plugin', p.style === 'learning' ? 'enable' : 'disable', OUTPUT_STYLE_PLUGINS.learning])
+  steps.push(['claude', 'plugin', p.style === 'explanatory' ? 'enable' : 'disable', OUTPUT_STYLE_PLUGINS.explanatory])
   let failed = 0
   for (const argv of steps) if ((await sh($, argv, 60_000)) === null) failed++
   await update($, pending, () => null)
@@ -310,12 +306,6 @@ async function buildModel($: any, surface: string): Promise<Model> {
       detail: percent !== null && percent >= 90 ? ['The context window is nearly full: compact soon.'] : [],
       actions: [{ key: 'mod-weather', label: 'Open details', act: () => void update($, page, () => 'weather' as Page) }],
     })),
-    mod('control-panel', '🧭', 'Classic Control Panel', () => ({
-      level: 'info',
-      summary: 'Replaced by this Control Center.',
-      detail: ['It still opens its own pane when on; you can turn it off in Settings.'],
-      actions: [{ key: 'mod-classic', label: 'Settings', act: () => void update($, page, () => 'settings' as Page) }],
-    })),
     mod('nudges', '✻', 'Nudges', () => ({
       level: 'ready',
       summary: n ? n.text : 'No suggestion right now.',
@@ -378,7 +368,6 @@ async function buildModel($: any, surface: string): Promise<Model> {
     learnerWaiting: waiting,
     deploy: deploy ? { rows: deploy.rows.map(r => ({ env: r.env, sha: r.sha, state: r.state, ago: ago(now - r.at), url: r.url })), headDeployed: deploy.headDeployed, repo: deploy.repo } : null,
     outputStyle,
-    classicPanelOn: e.plugins ? !!e.plugins[`control-panel${TOOLKIT}`]?.enabled : null,
   }
 }
 

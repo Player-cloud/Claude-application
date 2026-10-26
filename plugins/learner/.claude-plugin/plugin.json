@@ -1,8 +1,22 @@
 {
   "name": "learner",
-  "version": "1.3.0",
-  "description": "Finds tasks you keep asking Claude for and proposes a skill for each, plus lessons from one project worth sharing with all; nothing is added without your approval.",
+  "version": "2.0.0",
+  "description": "Finds tasks you keep asking Claude for in this profile and proposes a project skill for each, plus lessons worth keeping in this project. Shows what it would send before any model call, and writes only into this project, each write approved.",
   "types": "./types/index.d.ts",
+  "userConfig": {
+    "personalRoots": {
+      "type": "string",
+      "title": "Personal folders",
+      "description": "The Personal profile's folders, separated by ;, as in workspace-os. A Personal session reads only sessions that ran inside them. Empty: only the current project.",
+      "default": ""
+    },
+    "workRoots": {
+      "type": "string",
+      "title": "Work folders",
+      "description": "The Work profile's folders, separated by ;, as in workspace-os. A Work session reads only sessions that ran inside them. Empty: only the current project.",
+      "default": ""
+    }
+  },
   "author": {
     "name": "Joshua Oduore"
   }
