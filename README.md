@@ -34,3 +34,4 @@ Add this folder as a marketplace (`claude plugin marketplace add <this folder>`)
 - Mod tests: `claude plugin test plugins/<name>` for each plugin.
 - Manifest and hooks: `claude plugin validate plugins/<name>`.
 - secret-shield's scrubber, which starts real processes: `node --test plugins/secret-shield/hooks/scrub.spec.mjs`.
+- The two copies of the secret detector (`detect.ts` in secret-shield and workspace-os) must match; secret-shield's is the source: `node --test plugins/workspace-os/hooks/detect-copy.spec.mjs`.

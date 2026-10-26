@@ -1,4 +1,6 @@
 // Pure secret detection: no engine calls, so it can be tested on its own.
+// Kept identical in secret-shield and workspace-os, each plugin installs on its
+// own; secret-shield's copy is the source. detect-copy.spec.mjs checks they match.
 
 export type Found = { name: string; value: string }
 
