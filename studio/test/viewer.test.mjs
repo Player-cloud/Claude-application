@@ -38,7 +38,11 @@ for (const name of names) {
     const sections = await page.$$eval('section.type', s => s.map(x => [x.dataset.type, x.querySelectorAll('.card').length]))
     assert.deepEqual(sections, [['bold-and-loud', 2], ['dark-and-glowing', 2], ['calm-and-structured', 1], ['unsorted', 1]])
     assert.match(await page.textContent('#meta'), /^6 designs · last sorted /)
-    const loaded = await page.$$eval('.card img', imgs => imgs.map(i => i.complete && i.naturalWidth > 0))
+    // Thumbnails are lazy, so cards below the fold may not have started loading yet: load each and wait.
+    const loaded = await page.$$eval('.card img', imgs => Promise.all(imgs.map(i => {
+      i.loading = 'eager'
+      return i.decode().then(() => i.naturalWidth > 0, () => false)
+    })))
     assert.equal(loaded.length, 5)
     assert.ok(loaded.every(Boolean), 'every thumbnail loaded from disk')
     assert.match(await page.textContent('[data-id="2026-10-25-loop-studio"]'), /Not inspected/)
@@ -56,7 +60,7 @@ for (const name of names) {
     const headings = await dialog.locator('h4').allTextContents()
     assert.deepEqual(headings, ['Your note', 'Observed', 'Inferred', 'Your reaction'])
     assert.match(await dialog.textContent(), /one word does all the work/)
-    assert.ok(await dialog.locator('img').evaluate(i => i.complete && i.naturalWidth > 0))
+    assert.ok(await dialog.locator('img').evaluate(i => i.decode().then(() => i.naturalWidth > 0, () => false)))
     await page.keyboard.press('Escape')
     await page.locator('dialog[open]').waitFor({ state: 'detached' }).catch(() => {})
     assert.equal(await page.locator('dialog[open]').count(), 0)
