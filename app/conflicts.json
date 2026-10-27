@@ -1,0 +1,20 @@
+{
+  "plugins": [
+    {
+      "name": "control-panel",
+      "why": "Retired. Control Center does its job, and both would draw a pane."
+    },
+    {
+      "name": "blast-radius",
+      "why": "Duplicates the workspace-os guards, and its Windows copy can hang on harmless commands."
+    },
+    {
+      "name": "reflect-mod",
+      "why": "Sends short prompts to a model and writes a global CLAUDE.md for both profiles; the feedback skill does this job."
+    },
+    {
+      "name": "savvy-progress",
+      "why": "Dormant (its /savvy-flow is not installed) but still adds tools to every session."
+    }
+  ]
+}

@@ -1,6 +1,6 @@
 # Workspace OS (my-toolkit)
 
-This repo also holds [Learning Studio](studio/README.md), a design reference library viewer that works alongside the plugins.
+This repo also holds [Learning Studio](studio/README.md), a design reference library viewer that works alongside the plugins, and the [Workspace OS app](app/README.md): double-click `Workspace OS.cmd` to set the whole toolkit up on a Windows PC, check it, and pack it for another PC.
 
 Workspace OS as a plugin pack for Claude Code, running in the Claude Desktop Code tab on a Pro plan. It replaces the separate Electron app, which Anthropic requires to use a paid API key.
 
