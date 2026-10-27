@@ -40,7 +40,7 @@
     {
       "name": "nudges",
       "source": "./plugins/nudges",
-      "description": "Suggests the right command at the right moment above the prompt, with a one-click Run: ship-check after a commit or push, next-part on a clean project, and finishing old uncommitted work."
+      "description": "Suggests the right command at the right moment above the prompt, with a one-click Run: ship-check after a commit or push, next-part on a clean project, finishing old uncommitted work, and the Friday manager update in the Work profile only."
     },
     {
       "name": "workspace-os",

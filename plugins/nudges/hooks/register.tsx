@@ -5,11 +5,16 @@ import type { Suggestion } from '../types'
 
 // Suggests the right command at the right moment, one at a time, above the
 // prompt with a Run button. Nothing runs without a click: these commands
-// build, deploy or write documents.
+// build, deploy or write documents. The profile comes from WSOS_PROFILE, as
+// workspace-os reads it: the Friday update is a Work nudge only.
 
 const suggestion = atom({ plugin: 'nudges', key: 'suggestion' } as const, null as Suggestion | null)
 
+const CHECK_EVERY_MS = 15 * 60_000
 const DAY_MS = 86_400_000
+// Friday from 15:00 is when the week's update is due.
+const REPORT_DAY = 5
+const REPORT_HOUR = 15
 
 const COMMIT = /\bgit\s+(?:-C\s+\S+\s+)?commit\b/
 const PUSH = /\bgit\s+(?:-C\s+\S+\s+)?push\b/
@@ -21,6 +26,7 @@ const RUN = 'Run it'
 const WHAT_HAPPENS: Record<string, string> = {
   'ship-check': 'It runs the build, test and migration checks, then asks before deploying anything.',
   'next-part': 'It plans the next part for your approval before changing any code.',
+  'manager-update': 'It drafts your update as a document. Nothing is sent.',
 }
 
 const today = (ms: number) => new Date(ms).toISOString().slice(0, 10)
@@ -100,11 +106,32 @@ async function checkProject($: any): Promise<void> {
   if (hasPlan) await suggest($, { id: 'next-part', command: 'next-part', text: 'Everything is committed. Carry on with the next part of the plan?' })
 }
 
-export const register: Register = on => {
+// Through a Work day: the week's update on a Friday afternoon.
+async function checkClock($: any): Promise<void> {
+  const now = new Date(await $.clock.now())
+  if (now.getDay() === REPORT_DAY && now.getHours() >= REPORT_HOUR) {
+    await suggest($, { id: 'manager-update', command: 'manager-update', text: "It's Friday afternoon. Write this week's update for your manager?" })
+  }
+}
+
+async function profileOf($: any): Promise<'personal' | 'work' | null> {
+  const raw = ((await $.env.get('WSOS_PROFILE')) ?? '').trim().toLowerCase()
+  return raw === 'personal' || raw === 'work' ? raw : null
+}
+
+export const register: Register = (on, options = {}) => {
+  // On unless switched off, e.g. once a Cowork schedule writes the update.
+  const fridayUpdate = options.workFridayUpdate !== false
+
   on('session.start', async ($, e, next) => {
     const result = await next(e)
     await $.command.register({ name: 'nudge', description: 'Show the current suggestion; "later" silences it until tomorrow' })
     void checkProject($)
+    // Personal sessions, and sessions with no profile, get no clock nudge.
+    if (fridayUpdate && (await profileOf($)) === 'work') {
+      void checkClock($)
+      $.clock.every(CHECK_EVERY_MS, () => void checkClock($))
+    }
     return result
   })
 
