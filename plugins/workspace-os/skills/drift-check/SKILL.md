@@ -32,3 +32,5 @@ Under the table, give the count of claims that match.
 For each row, ask which side is right: **fix the code**, **update the plan**, or **leave it**. Change nothing until the user says. When the plan is updated, add the date and the row numbers to its `## Review log` section.
 
 If everything matches, say so in one line.
+
+If what was built has screens, offer the `qa` skill next: the drift check reads the code, and qa checks the screens against the plan's journeys.

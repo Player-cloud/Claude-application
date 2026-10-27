@@ -27,7 +27,7 @@ let collected: Collected | null = null
 
 const SKILLS_PROMPT = (requests: string, existing: string) => `Below are requests a developer typed to Claude over recent weeks, one per line as [project date] text, followed by the skills and commands they already have.
 
-Find tasks they asked for repeatedly — at least 3 times, on at least 2 different days — that no existing skill already covers well, and propose a reusable skill for each. Ignore one-off requests, approvals, and anything about sharing passwords. Never put a password, key, token or connection string in a draft. Prefer fewer, broader skills; at most 5.
+Find tasks they asked for repeatedly — at least 3 times, on at least 2 different days — that no existing skill already covers well, and propose a reusable skill for each. Propose one only when the task is also stable (done the same way each time, not still being worked out) and costly to get wrong or tedious to redo; exploratory work that keeps changing shape stays a habit, because a skill would freeze the wrong approach. Ignore one-off requests, approvals, and anything about sharing passwords. Never put a password, key, token or connection string in a draft. Prefer fewer, broader skills; at most 5.
 
 Reply with JSON only, in this shape (an empty list when nothing qualifies):
 {"skills":[{"name":"kebab-case-name","title":"Short title","why":"One sentence: what repeats and how often","evidence":["a short quote of a request", "..."],"description":"When to use the skill, phrased as triggers, one or two sentences","body":"The SKILL.md body in Markdown: the outcome, then the steps the skill follows, in the developer's context"}]}

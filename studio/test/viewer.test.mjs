@@ -116,4 +116,16 @@ for (const name of names) {
     assert.match(await page.textContent('#library'), /no library\.js in this folder yet/)
     assert.deepEqual(errors, [])
   })
+
+  test(`${name}: every named scenario opens without page errors and shows its designs`, async () => {
+    const { SCENARIOS, makeScenario } = await import('../tools/scenarios.mjs')
+    for (const [scenario, s] of Object.entries(SCENARIOS)) {
+      const dir = mkdtempSync(join(tmpdir(), `scenario-${scenario}-`))
+      makeScenario(scenario, dir)
+      const { page, errors } = await openStudio(dir)
+      assert.equal(await page.locator('.card').count(), s.expect.items, `${scenario} cards`)
+      assert.deepEqual(errors, [], `${scenario} errors`)
+      await page.close()
+    }
+  })
 }

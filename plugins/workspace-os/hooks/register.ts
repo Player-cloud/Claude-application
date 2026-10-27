@@ -42,6 +42,28 @@ async function vaultRealPath($: EngineInterface, vaultDir: string): Promise<stri
   }
 }
 
+// The action log: one plain line per risky action you approved (pushes, deploys,
+// recursive deletes, .env writes), in the profile vault's _log/actions.md, so you can
+// look back at what was done. Secrets are masked. Writing it never affects the action.
+async function logAction($: EngineInterface, dir: string | null, cwd: string, e: Record<string, unknown>, why: string): Promise<void> {
+  if (!dir) return
+  try {
+    const raw = maskSecrets(String(e.command ?? e.file_path ?? e.notebook_path ?? e.tool ?? '')).replace(/\s+/g, ' ').replace(/`/g, "'").trim()
+    const what = raw.length > 160 ? `${raw.slice(0, 157)}...` : raw
+    const at = new Date(await $.clock.now()).toISOString().slice(0, 16).replace('T', ' ')
+    const file = `${dir}/_log/actions.md`
+    let text: string
+    try {
+      text = await $.fs.read(file)
+    } catch {
+      text = '# Approved actions\n\nWritten by Workspace OS: one line for each action that asked first, was approved and ran. Times are UTC.\n\n'
+    }
+    await $.fs.write(file, `${text}- ${at} · ${why} · \`${what}\` · ${cwd}\n`)
+  } catch {
+    // A vault that can't be written only loses the log line.
+  }
+}
+
 // Every note's path inside the vault. Only real folders are entered: a link is listed
 // as `other` and skipped, so nothing outside the vault is pulled in; .obsidian is never
 // entered.
@@ -403,7 +425,7 @@ export const register: Register = (on, options) => {
   })
 
   // The boundary: a hard no for the other profile's folders and vault.
-  on('tool.call', ($, e, next) => {
+  on('tool.call', async ($, e, next) => {
     const paths = touched(e.tool, e as unknown as Record<string, unknown>, cwd)
     if (paths && paths.some(inBlocked)) {
       return { deny: profile ? outsideProfile(profile) : NO_PROFILE }
@@ -411,7 +433,12 @@ export const register: Register = (on, options) => {
     // The vault's own rules (private notes, masked secrets) hold only if every read goes
     // through the vault tools, so Claude's built-in tools can't open it directly.
     if (paths && paths.some(inOwnVault)) return { deny: VAULT_DIRECT }
-    return next(e)
+    const why = gateReason(e.tool, e)
+    if (!why) return next(e)
+    // It asked first and is running, so you said yes: note it once it has worked.
+    const result = await next(e)
+    if (!(result as { isError?: boolean } | undefined)?.isError) await logAction($, vaultDir(), cwd, e as unknown as Record<string, unknown>, why)
+    return result
   }).catch(($, e, next) => (next.called ? next(e) : { deny: CHECK_FAILED }))
 
   // Memory: other plugins can't write the shared CLAUDE.md or anyone's Preferences.

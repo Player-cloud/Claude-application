@@ -71,3 +71,23 @@ test('library.js cannot be broken out of by item text', () => {
   assert.ok(!script.includes(LS) && !script.includes(PS), 'line separators escaped')
   assert.equal(load(script).items[0].title, nasty)
 })
+
+test('every named scenario builds with the items and warnings it promises', async () => {
+  const { SCENARIOS, makeScenario } = await import('../tools/scenarios.mjs')
+  const { readdirSync } = await import('node:fs')
+  for (const [name, s] of Object.entries(SCENARIOS)) {
+    const dir = mkdtempSync(join(tmpdir(), `scenario-${name}-`))
+    const { library, warnings } = makeScenario(name, dir)
+    assert.equal(library.items.length, s.expect.items, `${name} items`)
+    assert.equal(warnings.length, s.expect.warnings, `${name} warnings: ${warnings.join('; ')}`)
+    assert.equal(readdirSync(join(dir, 'inbox')).length, s.expect.inbox ?? 0, `${name} inbox`)
+  }
+})
+
+test('a scenario refuses to write into a folder that already has files', async () => {
+  const { makeScenario } = await import('../tools/scenarios.mjs')
+  const dir = mkdtempSync(join(tmpdir(), 'scenario-full-'))
+  writeFileSync(join(dir, 'keep.txt'), 'mine')
+  assert.throws(() => makeScenario('normal', dir), /isn't empty/)
+  assert.equal(readFileSync(join(dir, 'keep.txt'), 'utf8'), 'mine')
+})
