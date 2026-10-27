@@ -33,11 +33,19 @@ export function run(cmd, args = [], { cwd, input, timeout = 600000, env } = {}) 
   })
 }
 
-// Opens a folder, file or web address with the PC's default program.
+// Opens a folder, file or web address with the PC's default program. On Windows, folders go to Explorer and
+// files and web addresses to the shell's file handler; the window must not inherit a hidden start.
 export function openThing(target) {
-  const cmd = isWin ? 'explorer.exe' : process.platform === 'darwin' ? 'open' : 'xdg-open'
+  let cmd
+  let args
+  if (isWin) {
+    if (isDir(target)) { cmd = 'explorer.exe'; args = [target] } else { cmd = 'rundll32.exe'; args = ['url.dll,FileProtocolHandler', target] }
+  } else {
+    cmd = process.platform === 'darwin' ? 'open' : 'xdg-open'
+    args = [target]
+  }
   try {
-    const child = spawn(cmd, [target], { detached: true, stdio: 'ignore', windowsHide: true })
+    const child = spawn(cmd, args, { detached: true, stdio: 'ignore' })
     child.on('error', () => {})
     child.unref()
     return true
