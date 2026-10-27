@@ -39,14 +39,14 @@ export function health(snap, state, movedFrom = null) {
   if (!movedFrom && (!market || !samePath(market.path, snap.appDir))) needs.push({ text: 'Claude installs the toolkit from another folder. Switch it here in setup step 2.', step: 2 })
   if (conflicts.length) needs.push({ text: `${conflicts.length} conflicting install${conflicts.length === 1 ? '' : 's'} found. Remove ${conflicts.length === 1 ? 'it' : 'them'} in setup step 2.`, step: 2 })
   const stale = plugins.filter((p) => p.on && p.version && p.folderVersion && p.version !== p.folderVersion)
-  if (stale.length) needs.push({ text: `${stale.map((p) => p.name).join(', ')} ${stale.length === 1 ? 'is' : 'are'} older in Claude than in the toolkit. Update toolkit refreshes them.` })
+  if (stale.length) needs.push({ text: `${stale.map((p) => p.name).join(', ')} ${stale.length === 1 ? 'is' : 'are'} older in Claude than in the toolkit. Setup step 4 updates them.`, step: 4 })
   for (const p of PROFILES) {
     const h = profiles[p]
     const name = PROFILE_NAMES[p]
     if (!h.on) needs.push({ text: `${name} profile is not set up on this PC. Add it when you need it.`, step: 3 })
     else if (!h.exists) needs.push({ text: `${name} folder ${h.root} is missing. If it is on a USB stick, plug it in or pick the new folder.`, step: 3 })
     else if (!h.marked) needs.push({ text: `${name} folder is not marked, so sessions there start with no profile.`, step: 3 })
-    else if (h.inbox) needs.push({ text: `${h.inbox} new file${h.inbox === 1 ? '' : 's'} in the ${name} Studio inbox. Ask Claude to sort them.` })
+    else if (h.inbox) needs.push({ text: `${h.inbox} new file${h.inbox === 1 ? '' : 's'} in the ${name} Studio inbox. Ask Claude to sort them.`, open: `studio:${p}` })
   }
   return {
     appDir: snap.appDir,

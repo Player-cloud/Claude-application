@@ -17,6 +17,20 @@ test('mergeJson keeps everything else in the file', async () => {
   assert.deepEqual(JSON.parse(readFileSync(file, 'utf8')), { permissions: { allow: ['Bash(ls)'] }, env: { OTHER: '1', WSOS_PROFILE: 'work' }, hooks: { Stop: [] } })
 })
 
+test('mergeJson refuses a file that is not plain JSON and backs up the old file before changing it', async () => {
+  const dir = tmp()
+  const file = join(dir, 'settings.local.json')
+  writeFileSync(file, '{ // a comment\n "env": {} }')
+  const r = await runOp({ type: 'mergeJson', path: file, set: { env: { WSOS_PROFILE: 'work' } } })
+  assert.equal(r.ok, false)
+  assert.equal(readFileSync(file, 'utf8'), '{ // a comment\n "env": {} }')
+  writeFileSync(file, '{"env":{}}')
+  const ok = await runOp({ type: 'mergeJson', path: file, set: { env: { WSOS_PROFILE: 'work' } } })
+  assert.match(ok.note, /Backup: .*bak-wsos-/)
+  const backup = ok.note.match(/Backup: (.*)/)[1]
+  assert.equal(readFileSync(backup, 'utf8'), '{"env":{}}')
+})
+
 test('copyTree skips secret-looking files and, when restoring, keeps files already there', async () => {
   const from = tmp()
   const to = join(tmp(), 'out')

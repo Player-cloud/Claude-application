@@ -1,6 +1,6 @@
 // Runs the actions a person ticked. Each op type is a small, fixed operation; nothing here runs a shell.
 
-import { copyFileSync, existsSync, mkdirSync, readdirSync, writeFileSync } from 'node:fs'
+import { copyFileSync, existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { basename, dirname, join, sep } from 'node:path'
 import { appDir, claude, claudeDir, readJson, run } from './sys.mjs'
 import { keepInPack } from './plan.mjs'
@@ -12,12 +12,28 @@ function stamp() {
 
 // Copies ~/.claude/settings.json aside once before a batch of changes.
 export function backupSettings() {
-  const file = join(claudeDir(), 'settings.json')
+  return backupFile(join(claudeDir(), 'settings.json'))
+}
+
+export function backupFile(file) {
   if (!existsSync(file)) return null
   const to = `${file}.bak-wsos-${stamp()}`
   copyFileSync(file, to)
   return to
 }
+
+// Reads a JSON file that is about to be changed. A missing file is empty; a file that isn't plain JSON
+// (comments, a typo) is refused rather than replaced.
+function readForChange(path) {
+  if (!existsSync(path)) return { ok: true, value: {} }
+  try {
+    const value = JSON.parse(readFileSync(path, 'utf8').replace(/^\uFEFF/, ''))
+    return value && typeof value === 'object' && !Array.isArray(value) ? { ok: true, value } : { ok: false }
+  } catch {
+    return { ok: false }
+  }
+}
+const unreadable = (path) => ({ ok: false, note: `${path} isn't plain JSON (it may have comments), so it was left as it is. Fix or remove it, then try again.` })
 
 export function deepMerge(base, patch) {
   const out = { ...(base && typeof base === 'object' && !Array.isArray(base) ? base : {}) }
@@ -54,7 +70,9 @@ function copyTree(from, to, skipExisting) {
 // Adds mods to the local mods marketplace.json. Entries already listed stay as they are.
 export function mergeModsMarket(dir, add) {
   const file = join(dir, '.claude-plugin', 'marketplace.json')
-  const old = readJson(file, null) || { name: MODS_MARKETPLACE, owner: { name: 'local' }, plugins: [] }
+  const read = readForChange(file)
+  if (!read.ok) return null
+  const old = existsSync(file) ? read.value : { name: MODS_MARKETPLACE, owner: { name: 'local' }, plugins: [] }
   const plugins = [...(old.plugins || [])]
   const added = []
   for (const name of add) {
@@ -87,10 +105,13 @@ export async function runOp(op, tool) {
       return { ok: true, note: parts.join('; ') }
     }
     case 'mergeJson': {
-      const current = readJson(op.path, {}) || {}
+      const read = readForChange(op.path)
+      if (!read.ok) return unreadable(op.path)
       mkdirSync(dirname(op.path), { recursive: true })
-      writeFileSync(op.path, JSON.stringify(deepMerge(current, op.set), null, 2) + '\n')
-      return { ok: true, note: op.note }
+      // settings.json was backed up once for the whole batch; other files get their own backup.
+      const backup = op.path === join(claudeDir(), 'settings.json') ? null : backupFile(op.path)
+      writeFileSync(op.path, JSON.stringify(deepMerge(read.value, op.set), null, 2) + '\n')
+      return { ok: true, note: [op.note, backup && `Backup: ${backup}`].filter(Boolean).join('\n') || undefined }
     }
     case 'writeJson':
       mkdirSync(dirname(op.path), { recursive: true })
@@ -114,11 +135,13 @@ export async function runOp(op, tool) {
     }
     case 'modsMarket': {
       const added = mergeModsMarket(op.dir, op.add || [])
+      if (!added) return unreadable(join(op.dir, '.claude-plugin', 'marketplace.json'))
       const note = added.length ? `Added ${added.join(', ')}` : 'Already listed.'
       if (!op.viaCli) {
         const file = join(claudeDir(), 'settings.json')
-        const current = readJson(file, {}) || {}
-        writeFileSync(file, JSON.stringify(deepMerge(current, { extraKnownMarketplaces: { [MODS_MARKETPLACE]: { source: { source: 'directory', path: op.dir } } } }), null, 2) + '\n')
+        const read = readForChange(file)
+        if (!read.ok) return unreadable(file)
+        writeFileSync(file, JSON.stringify(deepMerge(read.value, { extraKnownMarketplaces: { [MODS_MARKETPLACE]: { source: { source: 'directory', path: op.dir } } } }), null, 2) + '\n')
         return { ok: true, note }
       }
       const r = await claude(tool, ['plugin', 'marketplace', 'add', op.dir], { timeout: 120000 })

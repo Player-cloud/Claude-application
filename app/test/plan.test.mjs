@@ -48,10 +48,16 @@ test('conflicts: listed plugins, second copies, user env and an old toolkit fold
   })
   const { actions, notes } = planConflicts(s)
   const ids = actions.map((a) => a.id)
-  assert.deepEqual(ids, ['remove:control-panel@my-toolkit', 'remove:reflect-mod@local-mods', 'remove:nudges@old-market', 'remove:env-user', 'toolkit:here'])
+  assert.deepEqual(ids, ['remove:control-panel@my-toolkit:user', 'remove:reflect-mod@local-mods:user', 'remove:nudges@old-market:user', 'remove:env-user', 'toolkit:here'])
   assert.deepEqual(actions[0].op.args, ['plugin', 'uninstall', 'control-panel@my-toolkit', '--scope', 'user'])
   assert.deepEqual(actions.at(-1).op.args, ['plugin', 'marketplace', 'add', s.appDir])
   assert.match(notes[0], /administrator/)
+})
+
+test('conflicts: the same plugin at two scopes gets two separate ticks', () => {
+  const s = snap({ installed: [inst('control-panel@my-toolkit'), inst('control-panel@my-toolkit', { scope: 'project' })] })
+  const ids = planConflicts(s).actions.map((a) => a.id)
+  assert.deepEqual(ids, ['remove:control-panel@my-toolkit:user', 'remove:control-panel@my-toolkit:project'])
 })
 
 test('conflicts: nothing to do on a clean PC', () => {
@@ -123,23 +129,30 @@ test('plugins without the CLI are enabled and configured in settings.json', () =
   const { actions, notes } = planPlugins(s, { plugins: ['learner'] }, { personal: { on: true, root: '/p' } })
   assert.equal(actions[0].op.type, 'mergeJson')
   assert.deepEqual(actions[0].op.set, { enabledPlugins: { 'learner@my-toolkit': true }, pluginConfigs: { 'learner@my-toolkit': { options: { personalRoots: '/p' } } } })
-  assert.match(notes[0], /next time it starts/)
+  assert.match(notes.at(-1), /next time it starts/)
+  const stale = planPlugins(snap({ claude: null, installed: [inst('learner@my-toolkit', { version: '1.0.0' })] }), { plugins: ['learner'] }, {})
+  assert.match(stale.notes[0], /needs Claude Code/)
 })
 
 test('pack: per-profile folders, Work only when picked, manifest with version, no colon in the name', () => {
   const root = tmp()
   for (const d of ['Preferences', 'Vault', 'Studio']) mkdirSync(join(root, d))
   const s = snap({ installed: [inst('nudges@my-toolkit'), inst('filetree@local-mods'), inst('reflect-mod@local-mods')] })
-  mkdirSync(join(s.modSrc, 'filetree'), { recursive: true })
+  mkdirSync(join(s.modSrc, 'filetree-src', '.claude-plugin'), { recursive: true })
+  writeFileSync(join(s.modSrc, 'filetree-src', '.claude-plugin', 'plugin.json'), JSON.stringify({ name: 'filetree' }))
   const plan = planPack(s, { name: '2026-10-27_1100', profiles: ['personal'], mods: true }, { personal: { on: true, root }, work: { on: true, root: tmp() } })
   const ids = plan.actions.map((a) => a.id)
   assert.deepEqual(ids, ['pack:personal:Preferences', 'pack:personal:Vault', 'pack:personal:Studio', 'pack:mod:filetree', 'pack:manifest'])
+  assert.equal(plan.actions[3].op.from, join(s.modSrc, 'filetree-src'))
+  assert.equal(plan.actions[3].op.to, join(s.appDir, 'pack', '2026-10-27_1100', 'mods', 'filetree'))
+  const off = planPack(s, { profiles: ['work'] }, { personal: { on: true, root }, work: { on: false, root } })
+  assert.ok(!off.actions.some((a) => a.group === 'work'), 'a profile that is off is never packed')
   assert.equal(plan.actions[0].op.to, join(s.appDir, 'pack', '2026-10-27_1100', 'personal', 'Preferences'))
   const manifest = plan.actions.at(-1).op.value
   assert.equal(manifest.version, 1)
   assert.deepEqual(manifest.profiles, ['personal'])
   assert.deepEqual(manifest.mods, ['filetree'])
-  assert.match(packName(new Date(2026, 9, 27, 9, 5)), /^2026-10-27_0905$/)
+  assert.match(packName(new Date(2026, 9, 27, 9, 5, 7)), /^2026-10-27_090507$/)
   assert.ok(!plan.notes.some((n) => /Work notes/.test(n)))
   const withWork = planPack(s, { profiles: ['personal', 'work'] }, { personal: { on: true, root }, work: { on: true, root: tmp() } })
   assert.match(withWork.notes[0], /Work notes/)
@@ -155,10 +168,13 @@ test('restore: a pack profile goes only to the same profile; mods are added, not
   mkdirSync(join(dir, 'personal', 'Studio'), { recursive: true })
   mkdirSync(join(dir, 'work', 'Vault'), { recursive: true })
   mkdirSync(join(dir, 'mods', 'filetree'), { recursive: true })
-  s.packs = [{ name: 'p1', dir, manifest: { version: 1, profiles: ['personal', 'work'], mods: ['filetree'] } }]
+  s.installed = [inst('nudges@my-toolkit')]
+  s.settings = { pluginConfigs: { 'nudges@my-toolkit': { options: { workFridayUpdate: true } } } }
+  s.packs = [{ name: 'p1', dir, manifest: { version: 1, profiles: ['personal', 'work'], mods: ['filetree'], options: { 'nudges@my-toolkit': { workFridayUpdate: false }, 'learner@my-toolkit': { x: true } } } }]
   const r = planRestore(s, { pack: 'p1' }, { personal: { on: true, root: '/p' }, work: { on: false } })
   const ids = r.actions.map((a) => a.id)
-  assert.deepEqual(ids, ['restore:personal:Studio', 'restore:mod:filetree', 'restore:mods-market', 'restore:mod-install:filetree'])
+  assert.deepEqual(ids, ['restore:personal:Studio', 'restore:mod:filetree', 'restore:mods-market', 'restore:mod-install:filetree', 'restore:options:nudges@my-toolkit'])
+  assert.deepEqual(JSON.parse(r.actions[4].op.stdin), { workFridayUpdate: false })
   assert.equal(r.actions[0].op.to, join('/p', 'Studio'))
   assert.equal(r.actions[0].op.skipExisting, true)
   assert.deepEqual(r.actions[2].op.add, ['filetree'])
@@ -172,6 +188,10 @@ test('update is one pull plus refreshes', () => {
   assert.deepEqual(ids, ['update:pull', 'update:market', 'update:nudges'])
   assert.deepEqual(planUpdate(s).actions[0].op.args, ['pull', '--ff-only'])
   assert.equal(planUpdate(snap({ git: { repo: false } })).actions.length, 0)
+  const dirty = planUpdate(snap({ git: { repo: true, available: true, dirty: true } }))
+  assert.equal(dirty.actions.length, 0)
+  assert.match(dirty.notes[0], /local edits/)
+  assert.match(planUpdate(snap({ claude: null })).notes.at(-1), /need Claude Code/)
 })
 
 test('install check reports marks, Studio and versions', () => {
@@ -188,7 +208,7 @@ test('install check reports marks, Studio and versions', () => {
 })
 
 test('secret-looking names never go in a pack', () => {
-  for (const n of ['.env', '.env.local', 'id_rsa', 'id_ed25519.pub', 'cert.pem', 'my.key', 'node_modules', '.git']) assert.equal(keepInPack(n), false, n)
+  for (const n of ['.env', '.env.local', '.envrc', '.env-prod', '.env_backup', 'id_rsa', 'id_ed25519.pub', 'cert.pem', 'my.key', 'node_modules', '.git']) assert.equal(keepInPack(n), false, n)
   for (const n of ['design.md', 'notes.txt', 'environment.md', 'keyboard.md']) assert.equal(keepInPack(n), true, n)
 })
 

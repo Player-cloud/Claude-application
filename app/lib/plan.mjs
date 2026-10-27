@@ -4,7 +4,7 @@
 // Ids are "<kind>:<subject>" (e.g. "install:nudges", "mark:work"), stable for the same snapshot and choices.
 
 import { join, resolve } from 'node:path'
-import { existsSync, readFileSync } from 'node:fs'
+import { existsSync, readdirSync, readFileSync } from 'node:fs'
 import { MARKETPLACE, MODS_MARKETPLACE, PROFILES } from './state.mjs'
 
 export const STUDIO_FILES = ['index.html', 'STUDIO.md', 'types.md', 'build-library.mjs']
@@ -50,10 +50,10 @@ export function planConflicts(snap) {
   for (const p of snap.installed) {
     const known = conflictByName.get(p.name)
     if (known) {
-      actions.push({ id: `remove:${p.id}`, group: 'conflicts', label: `Remove ${p.name}`, detail: known.why, op: uninstallOp(snap, p) })
+      actions.push({ id: `remove:${p.id}:${p.scope || 'user'}`, group: 'conflicts', label: `Remove ${p.name}${p.scope && p.scope !== 'user' ? ` (${p.scope})` : ''}`, detail: known.why, op: uninstallOp(snap, p) })
     } else if (catalogNames.has(p.name) && p.market !== MARKETPLACE) {
       actions.push({
-        id: `remove:${p.id}`, group: 'conflicts',
+        id: `remove:${p.id}:${p.scope || 'user'}`, group: 'conflicts',
         label: `Remove the second copy of ${p.name}`,
         detail: `It comes from "${p.market}". Two copies would run the same hooks twice; the toolkit's copy stays.`,
         op: uninstallOp(snap, p),
@@ -194,6 +194,9 @@ export function planPlugins(snap, input, profiles) {
       if (!inst.enabled) {
         actions.push({ id: `enable:${p.name}`, group: 'plugins', label: `Turn on ${p.name}`, detail: '', op: snap.claude ? { type: 'claude', args: ['plugin', 'enable', id] } : viaSettings(snap, { enabledPlugins: { [id]: true } }) })
       }
+      if (p.version && inst.version && inst.version !== p.version && !snap.claude) {
+        notes.push(`${p.name} is ${inst.version} in Claude and ${p.version} in the toolkit. Updating it needs Claude Code; set its path in setup step 1.`)
+      }
       if (p.version && inst.version && inst.version !== p.version && snap.claude) {
         actions.push({ id: `update:${p.name}`, group: 'plugins', label: `Update ${p.name} ${inst.version} → ${p.version}`, detail: '', op: { type: 'claude', args: ['plugin', 'update', id] } })
       }
@@ -216,18 +219,37 @@ export function planPlugins(snap, input, profiles) {
 }
 
 // Pack contents: per profile Preferences, Vault, Studio (+ Learning\videos when asked); never these names.
-const SECRETISH = /^(\.env(\..*)?|.*\.(pem|key|pfx|p12)|id_(rsa|ed25519|ecdsa)(\.pub)?)$/i
+const SECRETISH = /^(\.env.*|.*\.(pem|key|pfx|p12)|id_(rsa|ed25519|ecdsa)(\.pub)?)$/i
 export const keepInPack = (name) => !SECRETISH.test(name) && name !== 'node_modules' && name !== '.git'
 const PACK_ITEMS = ['Preferences', 'Vault', 'Studio']
 
-// YYYY-MM-DD_HHmm: no ":" so it is a valid Windows folder name.
+// YYYY-MM-DD_HHmmss: no ":" so it is a valid Windows folder name, and two packs a minute apart don't mix.
 export function packName(now = new Date()) {
   const pad = (n) => String(n).padStart(2, '0')
-  return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}_${pad(now.getHours())}${pad(now.getMinutes())}`
+  return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}_${pad(now.getHours())}${pad(now.getMinutes())}${pad(now.getSeconds())}`
 }
 
 // Kept mods: plugins installed from the local-mods marketplace (~/.claude/mod-src, one folder per mod with its
 // own .claude-plugin/plugin.json, listed in mod-src/.claude-plugin/marketplace.json) that are not in conflicts.json.
+// A mod's folder in mod-src: the marketplace.json entry's source, else a folder whose plugin.json has that name.
+export function modFolder(modSrc, name) {
+  try {
+    const market = JSON.parse(readFileSync(join(modSrc, '.claude-plugin', 'marketplace.json'), 'utf8').replace(/^\uFEFF/, ''))
+    const entry = (market.plugins || []).find((p) => p.name === name)
+    if (typeof entry?.source === 'string' && existsSync(join(modSrc, entry.source))) return join(modSrc, entry.source)
+  } catch {}
+  if (existsSync(join(modSrc, name, '.claude-plugin', 'plugin.json'))) return join(modSrc, name)
+  try {
+    for (const d of readdirSync(modSrc, { withFileTypes: true })) {
+      if (!d.isDirectory()) continue
+      try {
+        if (JSON.parse(readFileSync(join(modSrc, d.name, '.claude-plugin', 'plugin.json'), 'utf8').replace(/^\uFEFF/, '')).name === name) return join(modSrc, d.name)
+      } catch {}
+    }
+  } catch {}
+  return null
+}
+
 export function keptMods(snap) {
   const bad = new Set(snap.conflicts.map((c) => c.name))
   return snap.installed.filter((p) => p.market === MODS_MARKETPLACE && !bad.has(p.name)).map((p) => p.name)
@@ -241,7 +263,7 @@ export function planPack(snap, input, profiles) {
   const actions = []
   const picked = []
   for (const p of PROFILES) {
-    if (!input?.profiles?.includes(p) || !profiles?.[p]?.root) continue
+    if (!input?.profiles?.includes(p) || !profiles?.[p]?.on || !profiles[p].root) continue
     picked.push(p)
     const items = [...PACK_ITEMS, ...(input.videos ? [join('Learning', 'videos')] : [])]
     for (const item of items) {
@@ -250,9 +272,13 @@ export function planPack(snap, input, profiles) {
       actions.push({ id: `pack:${p}:${item}`, group: p, label: `${PROFILE_NAMES[p]} ${item.replace(/\\/g, '/')}`, detail: from, op: { type: 'copyTree', from, to: join(dir, p, item) } })
     }
   }
-  const mods = input?.mods ? keptMods(snap).filter((m) => existsSync(join(snap.modSrc, m))) : []
-  for (const m of mods) {
-    actions.push({ id: `pack:mod:${m}`, group: 'mods', label: `Mod ${m}`, detail: join(snap.modSrc, m), op: { type: 'copyTree', from: join(snap.modSrc, m), to: join(dir, 'mods', m) } })
+  const mods = []
+  const missing = []
+  for (const m of input?.mods ? keptMods(snap) : []) {
+    const folder = modFolder(snap.modSrc, m)
+    if (!folder) { missing.push(m); continue }
+    mods.push(m)
+    actions.push({ id: `pack:mod:${m}`, group: 'mods', label: `Mod ${m}`, detail: folder, op: { type: 'copyTree', from: folder, to: join(dir, 'mods', m) } })
   }
   const enabled = snap.installed.filter((i) => i.market === MARKETPLACE && i.enabled).map((i) => i.name)
   const options = {}
@@ -265,6 +291,7 @@ export function planPack(snap, input, profiles) {
   actions.push({ id: 'pack:manifest', group: 'pack', label: 'Write the pack list (manifest.json)', detail: 'Which profiles, plugins and mods are in this pack.', op: { type: 'writeJson', path: join(dir, 'manifest.json'), value: manifest } })
   const notes = [`Saved to ${dir}. This folder is never uploaded to GitHub.`, 'Files named like .env, keys and certificates are skipped. The check is by file name only, so keep passwords out of your notes.']
   if (picked.includes('work')) notes.unshift('This pack includes Work notes. Only carry it where your workplace allows.')
+  if (missing.length) notes.push(`Not packed, because their folders weren't found in ${snap.modSrc}: ${missing.join(', ')}.`)
   return { actions, notes, name }
 }
 
@@ -299,6 +326,19 @@ export function planRestore(snap, input, profiles) {
       actions.push({ id: `restore:mod-install:${m}`, group: 'mods', label: `Install mod ${m}`, detail: '', op: snap.claude ? { type: 'claude', args: ['plugin', 'install', id] } : viaSettings(snap, { enabledPlugins: { [id]: true } }) })
     }
   }
+  for (const [id, opts] of Object.entries(pack.manifest.options || {})) {
+    const inst = snap.installed.find((i) => i.id === id)
+    const current = snap.settings.pluginConfigs?.[id]?.options || {}
+    const changed = Object.fromEntries(Object.entries(opts || {}).filter(([k, v]) => typeof v === 'boolean' && current[k] !== v))
+    if (!inst || !Object.keys(changed).length) continue
+    actions.push({
+      id: `restore:options:${id}`, group: 'plugins', label: `Set ${inst.name}'s choices from the pack`,
+      detail: Object.entries(changed).map(([k, v]) => `${k} = ${v}`).join('\n'),
+      op: snap.claude
+        ? { type: 'claude', args: ['plugin', 'configure', id, '--values-stdin'], stdin: JSON.stringify(changed) }
+        : viaSettings(snap, { pluginConfigs: { [id]: { options: changed } } }),
+    })
+  }
   const notes = [`From the pack made ${pack.manifest.createdAt ? pack.manifest.createdAt.slice(0, 16).replace('T', ' ') : pack.name}.`]
   return { actions, notes, pack: pack.name }
 }
@@ -307,6 +347,7 @@ export function planRestore(snap, input, profiles) {
 export function planUpdate(snap) {
   const g = snap.git || {}
   if (!g.repo || !g.available) return { actions: [], notes: ['This folder is not a Git copy of the toolkit, so it cannot update itself. Download the new version from GitHub instead.'] }
+  if (g.dirty) return { actions: [], notes: ['This toolkit folder has local edits, so it is not updated. Commit or undo them first.'] }
   const actions = [{ id: 'update:pull', group: 'update', label: 'Get the latest toolkit from GitHub', detail: 'git pull --ff-only (stops rather than overwrite local edits)', op: { type: 'git', args: ['pull', '--ff-only'] } }]
   if (snap.claude) {
     actions.push({ id: 'update:market', group: 'update', label: 'Refresh the toolkit list in Claude', detail: `claude plugin marketplace update ${MARKETPLACE}`, op: { type: 'claude', args: ['plugin', 'marketplace', 'update', MARKETPLACE] } })
@@ -314,7 +355,9 @@ export function planUpdate(snap) {
       actions.push({ id: `update:${i.name}`, group: 'update', label: `Refresh ${i.name}`, detail: '', op: { type: 'claude', args: ['plugin', 'update', i.id] } })
     }
   }
-  return { actions, notes: ['Restart Claude Desktop afterwards so it loads the new versions.'] }
+  const notes = ['Restart Claude Desktop afterwards so it loads the new versions.']
+  if (!snap.claude) notes.push('Claude Code was not found, so only the toolkit folder is updated. Plugin versions in Claude need Claude Code (set its path in setup step 1).')
+  return { actions, notes }
 }
 
 // 6 · Check the install: is this PC set up the way the steps intended? Read-only.

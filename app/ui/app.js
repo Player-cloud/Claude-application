@@ -264,6 +264,7 @@ async function dashboard() {
   opens.push(openCard('handbook', 'Handbook', 'The Workspace OS help guide'))
   const need = (n) => `<p>${esc(n.text)}${n.step ? ` <a href="#/setup/${n.step}">Go to step ${n.step}</a>` : ''}
     ${n.resume ? ` <a href="#/${n.resume === 'pack' ? 'pack' : n.resume === 'update' ? 'dashboard' : `setup/${{ conflicts: 2, profiles: 3, plugins: 4, restore: 5 }[n.resume]}`}">Resume</a>` : ''}
+    ${n.open ? ` <a href="#" data-open="${esc(n.open)}">Open the Studio</a>` : ''}
     ${n.restore ? ' <button class="btn" data-restore>Put settings back</button>' : ''}</p>`
   view.innerHTML = `<div class="split"><div class="main">
     <div class="grid">

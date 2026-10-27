@@ -11,7 +11,7 @@ import { appDir, claudeDir, findClaude, home, isWin, openThing, readJson, run } 
 import { loadState, saveState, stateDir, RECOMMENDED, MARKETPLACE, PROFILES } from './lib/state.mjs'
 import { snapshot } from './lib/inspect.mjs'
 import { planConflicts, planProfiles, planPlugins, planRestore, planUpdate, planPack, packName, currentRoots, samePath, verify } from './lib/plan.mjs'
-import { applyActions } from './lib/apply.mjs'
+import { applyActions, backupSettings } from './lib/apply.mjs'
 import { health } from './lib/health.mjs'
 
 const args = process.argv.slice(2)
@@ -21,16 +21,21 @@ const uiDir = join(appDir, 'app', 'ui')
 // The Workspace OS Handbook: the help guide for the whole system, a claude.ai page.
 const HANDBOOK = 'https://claude.ai/artifact/J1eS7PTyp1EbUhuyqo9NCb'
 
-// Set when this folder runs from a different place than last time (for example a new USB drive letter).
-const recorded = loadState().appDir
-const movedFrom = recorded && !samePath(recorded, appDir) ? recorded : null
-if (!recorded) saveState({ appDir })
+// The toolkit folder is recorded only once Claude installs from it, so a move (a new USB drive letter)
+// stays reported until step 2 has actually pointed Claude at the new place.
+function settle(snap, state) {
+  const market = snap.markets.find((m) => m.name === MARKETPLACE)
+  const here = !!market && samePath(market.path, appDir)
+  if (here && !samePath(state.appDir, appDir)) return { state: saveState({ appDir }), movedFrom: null }
+  return { state, movedFrom: state.appDir && !samePath(state.appDir, appDir) ? state.appDir : null }
+}
 
 const steps = {
   conflicts: (snap) => planConflicts(snap),
   profiles: (snap, input) => planProfiles(snap, input),
-  plugins: (snap, input, state) => planPlugins(snap, input, input.profiles || state.profiles),
-  restore: (snap, input, state) => planRestore(snap, input, input.profiles || state.profiles),
+  // Plugins and restore use the profile folders saved by step 3, never unsaved ones from the page.
+  plugins: (snap, input, state) => planPlugins(snap, input, state.profiles),
+  restore: (snap, input, state) => planRestore(snap, input, state.profiles),
   update: (snap) => planUpdate(snap),
   pack: (snap, input, state) => planPack(snap, input, state.profiles),
 }
@@ -51,9 +56,10 @@ function defaults(snap, state) {
 
 async function api(method, path, body) {
   const state = loadState()
-  if (method === 'GET' && path === '/api/state') return { state, appDir, isWin, movedFrom }
+  if (method === 'GET' && path === '/api/state') return { state, appDir, isWin }
   if (method === 'GET' && path === '/api/check') {
     const snap = await snapshot(state)
+    const { movedFrom } = settle(snap, state)
     const gitv = await run('git', ['--version'], { timeout: 10000 })
     return {
       node: process.version,
@@ -68,7 +74,11 @@ async function api(method, path, body) {
       packs: snap.packs.map((p) => ({ name: p.name, createdAt: p.manifest.createdAt, profiles: Array.isArray(p.manifest.profiles) ? p.manifest.profiles : Object.keys(p.manifest.profiles || {}), mods: p.manifest.mods || [] })),
     }
   }
-  if (method === 'GET' && path === '/api/health') return health(await snapshot(state), state, movedFrom)
+  if (method === 'GET' && path === '/api/health') {
+    const snap = await snapshot(state)
+    const settled = settle(snap, state)
+    return health(snap, settled.state, settled.movedFrom)
+  }
   if (method === 'GET' && path === '/api/verify') return { items: verify(await snapshot(state), state.profiles) }
   if (method === 'POST' && (path === '/api/plan' || path === '/api/apply')) {
     const build = steps[body?.step]
@@ -84,19 +94,19 @@ async function api(method, path, body) {
     // Every apply is recorded, so a half-finished one can be resumed or its settings backup put back.
     const patch = { lastApply: { step: body.step, at: new Date().toISOString(), backup: out.backup, results: out.results } }
     if (body.step === 'profiles' && allOk) patch.profiles = input.profiles
-    if (body.step === 'conflicts' && allOk) patch.appDir = appDir
     if (body.step === 'pack' && allOk) patch.lastPack = { name: plan.name, at: new Date().toISOString() }
-    saveState(patch)
+    settle(await snapshot(saveState(patch)), loadState())
     return out
   }
   if (method === 'POST' && path === '/api/restore-backup') {
     const backup = state.lastApply?.backup
     if (!backup || !existsSync(backup)) return { ok: false, note: 'There is no backup from the last change.' }
+    const current = backupSettings()
     copyFileSync(backup, join(claudeDir(), 'settings.json'))
     saveState({ lastApply: { ...state.lastApply, restored: new Date().toISOString(), results: [] } })
-    return { ok: true, note: `Claude's settings are back as they were before the last change (${backup}). Restart Claude Desktop.` }
+    return { ok: true, note: `Claude's settings file is back as it was before the last change. Plugins that change installed stay installed; turn them off in setup step 4 if needed. The settings you had just now are saved in ${current}. Restart Claude Desktop.` }
   }
-  if (method === 'POST' && path === '/api/setup-done') return { state: saveState({ setupDone: true, appDir }) }
+  if (method === 'POST' && path === '/api/setup-done') return { state: saveState({ setupDone: true }) }
   if (method === 'POST' && path === '/api/settings') {
     const claudePath = String(body?.claudePath || '').trim()
     const tool = claudePath ? await findClaude(claudePath) : null

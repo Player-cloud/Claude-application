@@ -51,8 +51,8 @@ test('the API needs the page token, the right host and, for changes, the page or
 test('state lives in the home folder, not the toolkit', async () => {
   const { body } = await api('GET', '/api/state')
   assert.equal(body.state.setupDone, false)
-  assert.ok(existsSync(join(home, '.workspace-os', 'state.json')))
   assert.ok(existsSync(join(home, '.workspace-os', 'server.json')))
+  assert.ok(!existsSync(join(dirname(server), '..', 'state.json')))
 })
 
 test('end to end: conflicts, profiles and plugins through Claude Code', { skip: !hasClaude && 'claude CLI not installed' }, async () => {
@@ -74,10 +74,12 @@ test('end to end: conflicts, profiles and plugins through Claude Code', { skip: 
 
   const conflicts = (await api('POST', '/api/plan', { step: 'conflicts', input: {} })).body
   const ids = conflicts.actions.map((a) => a.id)
-  assert.deepEqual(ids, ['remove:control-panel@my-toolkit', 'toolkit:here'])
+  assert.deepEqual(ids, ['remove:control-panel@my-toolkit:user', 'toolkit:here'])
   const applied = (await api('POST', '/api/apply', { step: 'conflicts', input: {}, ids })).body
   assert.ok(applied.results.every((r) => r.ok), JSON.stringify(applied.results))
   assert.ok(applied.backup && existsSync(applied.backup))
+  const state = JSON.parse(readFileSync(join(home, '.workspace-os', 'state.json'), 'utf8'))
+  assert.equal(state.appDir, check.appDir, 'toolkit folder recorded once Claude installs from it')
 
   const profiles = { personal: { on: true, root: join(home, 'Code', 'personal') }, work: { on: true, root: join(home, 'Code', 'work') } }
   const pplan = (await api('POST', '/api/plan', { step: 'profiles', input: { profiles } })).body

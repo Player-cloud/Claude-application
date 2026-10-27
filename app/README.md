@@ -23,7 +23,7 @@ The app never talks to Claude, so it needs no API key. It changes Claude's setup
 
 ## Pack for another PC
 
-Saves Studio, Preferences and Vault per profile (Work only if you tick it), optional video lessons, and your kept mods (the `local-mods` plugins in `~\.claude\mod-src` that aren't in `conflicts.json`) into `pack\<YYYY-MM-DD_HHmm>\` in the toolkit folder, with a `manifest.json`. `pack/` is git-ignored. Files named like `.env`, keys and certificates are skipped; the check is by name only. Your Claude sign-in, transcripts and secret-shield's store never go in.
+Saves Studio, Preferences and Vault per profile (Work only if you tick it), optional video lessons, and your kept mods (the `local-mods` plugins in `~\.claude\mod-src` that aren't in `conflicts.json`) into `pack\<YYYY-MM-DD_HHmmss>\` in the toolkit folder, with a `manifest.json`. `pack/` is git-ignored. Files named like `.env`, keys and certificates are skipped; the check is by name only. Your Claude sign-in, transcripts and secret-shield's store never go in.
 
 ## Where things live
 
