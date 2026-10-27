@@ -34,7 +34,7 @@ id: 2026-10-26-tantillo
 title: Tantillo
 type: bold-and-loud
 tags: [food, landing page]
-source: inbox screenshot
+source: inbox tantillo.png
 link: https://example.com
 status: sorted
 added: 2026-10-26
@@ -57,6 +57,7 @@ Your reading of mood and intent, labelled as interpretation.
 - `type` is an `id:` from `types.md`, or `unsorted`.
 - `tags` describe subject matter (food, sport, dashboard), never taste.
 - `status` is `sorted`, or `not-inspected` when you couldn't see the design.
+- `source` is `inbox ` followed by the original file name of the image, or of the note for a link-only item (`inbox tantillo.png`). Sorting uses it to recognise designs it has already sorted.
 - `link` is optional and must start with `http://` or `https://`.
 - The image is always named `image.<original extension>`. One image per item.
 
@@ -65,11 +66,11 @@ Your reading of mood and intent, labelled as interpretation.
 When asked to sort (for example "sort my new designs" or "follow STUDIO.md"):
 
 1. Read `types.md`. If this profile has `Preferences/design.md`, you may read it for context about what the person likes, but never use it to judge or rank an item.
-2. List `inbox/`. Group files by name without extension: `tantillo.png` and `tantillo.txt` are one design. Accepted: images (png, jpg, jpeg, webp, gif, svg, avif) and notes (txt, md, url). Leave anything else in the inbox and mention it.
-3. For each design with an image: look at it once, then write `item.md` with Observed first, then Inferred. Copy any note's text into Your note word for word, and put a URL from the note into `link`.
+2. List `inbox/`. Group files by name without extension: `tantillo.png` and `tantillo.txt` are one design. Accepted: images (png, jpg, jpeg, webp, gif, svg, avif) and notes (txt, md, url). Leave anything else in the inbox and mention it. If an item's `source` already names an inbox file, that design was sorted before and the file just wasn't removed: don't sort it again, and list it in your report as safe to delete.
+3. For each design with an image: look at it once, then write `item.md` with Observed first, then Inferred. Copy any note's text into Your note word for word, and put a URL from the note into `link`. A note that is only a URL goes into `link`, and Your note stays empty.
 4. For a note with a link and no image: try to open the link with your own web tools. If you can see the design, describe it as usual. If not, set `status: not-inspected`, fill only Your note, and ask for a screenshot in your report.
 5. Pick the closest type from `types.md`. If none fits, use `type: unsorted` and propose a new type in chat (name, id, definition, traits). Only add it to `types.md` if the person says yes.
-6. Create `items/<id>/`, move the image there as `image.<ext>`, write `item.md`, and remove the matching files from `inbox/`.
+6. Create `items/<id>/`, move the image there as `image.<ext>`, write `item.md`, and remove the matching files from `inbox/`. Move or copy the image as a file; never read it and write its contents back out, because that breaks png, jpg and other binary images. If you can't move, copy or delete files here, leave the image in `inbox/`, don't create the item, and say so in your report. If you could copy but not delete, name the inbox files the person can now delete.
 7. Rebuild the index.
 8. Report briefly: each design, its type, anything not inspected, and anything left in the inbox.
 
@@ -107,7 +108,7 @@ Only when the person agrees: edit `types.md`, change `type:` in the affected `it
 ## Rebuild the index
 
 - **If you can run commands in this folder** (the Code tab): run `node build-library.mjs` here. It prints a count per type and any warnings; fix the warnings it names.
-- **If you can't** (for example in Cowork without command access): write `library.js` yourself in exactly the shape below. Use `JSON.stringify`-style JSON, write every `<` inside strings as `\u003c`, and include every item folder.
+- **If you can't** (for example in Cowork without command access): write `library.js` yourself in exactly the shape below. Use `JSON.stringify`-style JSON, write every `<` inside strings as `\u003c`, and include every item folder. Set `written` to the current time when you know it; the viewer only displays it.
 
 ```js
 window.STUDIO = {
