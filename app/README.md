@@ -2,6 +2,14 @@
 
 Sets up the toolkit on a Windows PC and checks it afterwards. Double-click **Workspace OS.cmd** in the toolkit folder; it opens a page in your browser. Leave the black window open while you use the page.
 
+If Windows Smart App Control blocks `Workspace OS.cmd` (it blocks unsigned scripts that came from a download), don't turn Smart App Control off: it can't be turned back on without resetting Windows. Start the app with Node instead. In File Explorer, open the toolkit folder, type `cmd` in the address bar, press Enter, and run:
+
+```
+node app\server.mjs --open
+```
+
+A `git clone` of the repo isn't marked as downloaded, so its `Workspace OS.cmd` usually runs.
+
 The app never talks to Claude, so it needs no API key. It changes Claude's setup through Claude Code's own plugin commands (`claude plugin …`), and Claude itself still runs in Claude Desktop and Cowork. Every change is shown with a tick box first, and `~\.claude\settings.json` is backed up (`settings.json.bak-wsos-<time>`) before Claude's settings change.
 
 ## What you need
