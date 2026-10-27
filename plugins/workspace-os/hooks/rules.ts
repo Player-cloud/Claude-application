@@ -1,5 +1,6 @@
 // What always asks you first, whatever the permission mode: things that leave
-// this machine or can't be taken back. Each rule says why, and the ask shows it.
+// this machine or can't be taken back, including recursive deletes and discarding
+// uncommitted work. Each rule says why, and the ask shows it.
 
 type Rule = { test: RegExp; why: string }
 
@@ -13,6 +14,13 @@ const SHELL: Rule[] = [
   { test: /\b(npm|pnpm|yarn)\s+publish\b/i, why: 'publishing always asks' },
   { test: /\bgh\s+(release\s+create|workflow\s+run)\b/i, why: 'releases and workflow runs always ask' },
   { test: />>?\s*["']?[^\s"'|;&]*\.env(\.[\w.-]+)?["']?(\s|$)/i, why: 'writing to a .env file always asks' },
+  { test: /\brm\b[^|;&\n]*\s(-[a-zA-Z]*[rR][a-zA-Z]*|--recursive)(\s|$)/, why: 'recursive deletes always ask' },
+  { test: /\bRemove-Item\b[^|;&\n]*\s-Recurse\b/i, why: 'recursive deletes always ask' },
+  { test: /\b(rmdir|rd)\s+[^|;&\n]*\/s\b/i, why: 'recursive deletes always ask' },
+  { test: /\bdel\s+[^|;&\n]*\/s\b/i, why: 'recursive deletes always ask' },
+  { test: /\brimraf\b/i, why: 'recursive deletes always ask' },
+  { test: /\bgit\b[^|;&\n]*\sreset\s[^|;&\n]*--hard\b/i, why: 'discarding uncommitted work always asks' },
+  { test: /\bgit\b[^|;&\n]*\sclean\s[^|;&\n]*-[a-zA-Z]*f/i, why: 'discarding uncommitted work always asks' },
 ]
 
 const ENV_FILE = /(^|[\\/])\.env(\.[\w.-]+)?$/i

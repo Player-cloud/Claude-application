@@ -458,8 +458,8 @@ export const register: Register = (on, options) => {
       : ''
     const extra = [vaultLine, inScratch() ? SCRATCH_TEXT : '', mode ? MODES[mode].text : ''].filter(Boolean).map(t => ` ${t}`).join('')
     const text = profile
-      ? `This session is in the ${LABEL[profile]} profile (Workspace OS). Folders that belong to the other profile are off limits; calls that touch them are refused. Deploys, pushes, migrations and .env writes always ask the user first.${taste}${extra}`
-      : 'This session has no Workspace OS profile, so Work folders are off limits; calls that touch them are refused. Deploys, pushes, migrations and .env writes always ask the user first.'
+      ? `This session is in the ${LABEL[profile]} profile (Workspace OS). Folders that belong to the other profile are off limits; calls that touch them are refused. Deploys, pushes, migrations, .env writes, recursive deletes and discarding uncommitted work always ask the user first.${taste}${extra}`
+      : 'This session has no Workspace OS profile, so Work folders are off limits; calls that touch them are refused. Deploys, pushes, migrations, .env writes, recursive deletes and discarding uncommitted work always ask the user first.'
     return { ...result, sections: [...result.sections, { id: 'workspace-os:profile', text, scope: 'session' }] }
   })
 }

@@ -202,6 +202,31 @@ test('deploys, pushes, migrations, publishing and releases always ask', { option
   expect((await check($, 'PowerShell', { command: 'git push' })).decision).toBe('ask')
 })
 
+test('recursive deletes and discarding uncommitted work always ask', { options: ROOTS }, async ($, on) => {
+  engine(on, env('personal'))
+  await start($, PERSONAL_APP)
+  for (const command of [
+    'rm -rf node_modules',
+    'rm -r build',
+    'rm -fR dist',
+    'rm --recursive out',
+    'npx rimraf dist',
+    'git reset --hard origin/main',
+    'git clean -fd',
+    'rmdir /s /q build',
+  ]) {
+    const v = await check($, 'Bash', { command })
+    expect(v.decision, command).toBe('ask')
+    expect(v.reason, command).toContain('workspace-os:')
+  }
+  for (const command of ['Remove-Item -Recurse -Force .\\build', 'Remove-Item C:\\tmp\\old -Recurse', 'del /s /q *.log']) {
+    expect((await check($, 'PowerShell', { command })).decision, command).toBe('ask')
+  }
+  for (const command of ['rm notes.txt', 'rm -f old.log', 'git reset HEAD~1', 'git reset --soft HEAD~1', 'git clean -n', 'Remove-Item old.txt']) {
+    expect((await check($, 'Bash', { command })).decision, command).toBe('allow')
+  }
+})
+
 test('ordinary commands and reads are left alone', { options: ROOTS }, async ($, on) => {
   engine(on, env('personal'))
   await start($, PERSONAL_APP)
