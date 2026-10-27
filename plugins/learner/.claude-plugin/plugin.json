@@ -1,6 +1,6 @@
 {
   "name": "learner",
-  "version": "2.0.0",
+  "version": "2.1.0",
   "description": "Finds tasks you keep asking Claude for in this profile and proposes a project skill for each, plus lessons worth keeping in this project. Shows what it would send before any model call, and writes only into this project, each write approved.",
   "types": "./types/index.d.ts",
   "userConfig": {

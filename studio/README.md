@@ -34,6 +34,15 @@ npm run sample
 
 Then open `sample-build/index.html`.
 
+## Named test states
+
+```
+npm run scenario            # all of them
+npm run scenario -- broken  # one
+```
+
+Writes ready-made Studios to `scenario-build/<name>/` for the `qa` skill and for trying things by hand: `first-run` (empty, fresh from the template), `normal` (the six samples), `inbox-waiting` (two new files to sort) and `broken` (three faulty items). The tests check each one builds and opens cleanly.
+
 ## Tests
 
 ```

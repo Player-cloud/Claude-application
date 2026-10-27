@@ -5,6 +5,7 @@
   "description": "Learning Studio release 1: a design reference library viewer, sorting instructions and tests",
   "scripts": {
     "sample": "node tools/assemble.mjs",
+    "scenario": "node tools/scenarios.mjs",
     "test": "node --test \"test/*.test.mjs\""
   },
   "devDependencies": {

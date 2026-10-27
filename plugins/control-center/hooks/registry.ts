@@ -179,6 +179,34 @@ export const CAPABILITIES: Capability[] = [
     steps: ['Collect your requests from the last 60 days', 'Ask Haiku for repeated tasks and shareable lessons', 'Show proposals for your approval (nothing is added automatically)'],
     stage: 'report',
   },
+  // Toolkit skills: plan, check against the plan, click through (the plan stays the source of truth)
+  {
+    id: 'goldfish-review', name: 'Goldfish Review', icon: '🐟', type: 'plugin skill', source: 'toolkit', plugin: 'workspace-os', category: 'Plan',
+    description: 'Fresh reviewers who see only the plan check it before anything is built; you pick the fixes.',
+    intents: ['review this plan', 'review the spec', 'goldfish review', 'check this plan', 'before we build', 'write a spec'],
+    needs: [{ kind: 'command', name: 'workspace-os:goldfish-review' }],
+    exec: { via: 'command', command: 'workspace-os:goldfish-review' },
+    steps: ['Find the plan in docs/designs (or start one from the template)', 'Four fresh reviewers read only the plan and the code (a fifth for design when it has screens)', 'One table of findings; you pick which to fix', 'Fix only those and note the rest in the review log'],
+    stage: 'plan', next: ['next-part'],
+  },
+  {
+    id: 'drift-check', name: 'Drift Check', icon: '🧭', type: 'plugin skill', source: 'toolkit', plugin: 'workspace-os', category: 'Review',
+    description: 'List every place the built code differs from its plan.',
+    intents: ['drift check', 'does the code match the plan', 'check against the spec', 'match the plan'],
+    needs: [{ kind: 'command', name: 'workspace-os:drift-check' }],
+    exec: { via: 'command', command: 'workspace-os:drift-check' },
+    steps: ['Read the plan and the code with fresh eyes', 'Mark each claim Matches, Differs or Missing', 'You decide: fix the code, update the plan, or leave it'],
+    stage: 'review', next: ['qa'],
+  },
+  {
+    id: 'qa', name: 'QA in the Browser', icon: '🖱', type: 'plugin skill', source: 'toolkit', plugin: 'workspace-os', category: 'Review',
+    description: "Click through the plan's journeys in a real browser and report with screenshots. Changes no code.",
+    intents: ['qa', 'test it in the browser', 'click through it', 'does it actually work', 'try the screens'],
+    needs: [{ kind: 'command', name: 'workspace-os:qa' }],
+    exec: { via: 'command', command: 'workspace-os:qa' },
+    steps: ["Read the plan's journeys and named test states", 'Start it locally with a test state, never real folders', 'Click through each step and take screenshots', 'Report pass and fail; you pick what gets fixed'],
+    stage: 'review', next: ['ship-check'],
+  },
   // Built-in
   {
     id: 'code-review', name: 'Code Review', icon: '🔍', type: 'command', source: 'built-in', category: 'Review',
@@ -475,6 +503,18 @@ export const WORKFLOWS: Workflow[] = [
       { cap: 'code-review', why: 'review the change' },
       { cap: 'claude-security', why: 'check it for security issues' },
       { cap: 'ship-check', why: 'check and deploy a preview' },
+    ],
+  },
+  {
+    id: 'plan-first', name: 'Plan, Build, Check', icon: '🐟',
+    description: 'Review the plan with fresh eyes, build it, then check the code and the screens against it before shipping.',
+    intents: ['plan first', 'spec first', 'build from the plan', 'build it properly'],
+    steps: [
+      { cap: 'goldfish-review', why: 'catch gaps in the plan while they are cheap' },
+      { cap: 'next-part', why: 'build it' },
+      { cap: 'drift-check', why: 'check the code still matches the plan' },
+      { cap: 'qa', why: 'click through the screens the way a person would' },
+      { cap: 'ship-check', why: 'ship only once both checks are clean' },
     ],
   },
   {
