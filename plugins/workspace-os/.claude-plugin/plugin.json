@@ -1,6 +1,6 @@
 {
   "name": "workspace-os",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "description": "Personal and Work profiles for Claude Code: each session uses its saved profile boundary, consequential actions ask first, taste stays profile-local and approval-gated, and on-demand skills help Claude learn from source-cited videos and work in tutor, build, do, or review modes.",
   "userConfig": {
     "personalRoots": {

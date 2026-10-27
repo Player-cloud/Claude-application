@@ -1,6 +1,7 @@
 import { expect, test } from 'claude-code/testing'
 
 const PERSONAL_APP = 'C:/Users/me/Code/personal/app'
+const OUTSIDE = 'C:/Users/me/Downloads/notes'
 const PERSONAL_OTHER = 'C:/Users/me/Code/personal/site'
 const WORK_APP = 'C:/Users/me/Code/work/client'
 
@@ -67,9 +68,9 @@ test('Work defaults to Do it for me', { options: ROOTS }, async ($, on) => {
 
 test('with no profile there is no mode, and /mode says why', { options: ROOTS }, async ($, on) => {
   engine(on, undefined)
-  await start($, PERSONAL_APP)
+  await start($, OUTSIDE)
   expect(modesIn(await prompt($))).toBe(0)
-  expect(await mode($, 'tutor')).toBe('Modes need a profile. Start the session from the Personal or Work environment.')
+  expect(await mode($, 'tutor')).toBe('Modes need a profile. Start the session in a Personal or Work folder, or from that environment.')
 })
 
 // ---- Switching ----

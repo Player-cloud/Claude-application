@@ -1,6 +1,7 @@
 import { expect, test } from 'claude-code/testing'
 
 const PERSONAL_APP = 'C:/Users/me/Code/personal/app'
+const OUTSIDE = 'C:/Users/me/Downloads/notes'
 const WORK_APP = 'C:/Users/me/Code/work/client'
 const PV = 'C:/Users/me/Code/personal/Vault'
 const WV = 'C:/Users/me/Code/work/Vault'
@@ -177,7 +178,7 @@ test('a Work session\'s vault tools see only the Work vault', { options: ROOTS }
 
 test('with no profile the vault tools aren\'t registered and have no vault', { options: ROOTS }, async ($, on) => {
   const seen = engine(on, undefined)
-  await start($, PERSONAL_APP)
+  await start($, OUTSIDE)
   expect(seen.registered).toEqual([])
   expect(await vault($, 'vault_read', { path: 'Garden.md' })).toBe('This session has no profile, so it has no notes vault.')
 })

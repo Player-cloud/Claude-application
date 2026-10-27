@@ -2,6 +2,7 @@ import { expect, test } from 'claude-code/testing'
 
 const PERSONAL_APP = 'C:/Users/me/Code/personal/app'
 const WORK_APP = 'C:/Users/me/Code/work/client'
+const OUTSIDE = 'C:/Users/me/Downloads/notes'
 
 const ROOTS = {
   personalRoots: 'C:\\Users\\me\\Code\\personal',
@@ -125,7 +126,7 @@ test('Work is refused Personal\'s vault files but reads its own', { options: ROO
 
 test('with no profile, Work\'s vault files are refused', { options: ROOTS }, async ($, on) => {
   const seen = engine(on, env(undefined))
-  await start($, PERSONAL_APP)
+  await start($, OUTSIDE)
   await read($, `${VAULTS}/C-Users-me-Code-work-client.env`)
   await read($, `${VAULTS}/C-Users-me-Code-personal-app.env`)
   expect(seen.ran).toEqual(['Read'])
@@ -133,12 +134,12 @@ test('with no profile, Work\'s vault files are refused', { options: ROOTS }, asy
 
 test('with no profile, Work is blocked and Personal works', { options: ROOTS }, async ($, on) => {
   const seen = engine(on, env(undefined))
-  await start($, PERSONAL_APP)
+  await start($, OUTSIDE)
   await read($, `${PERSONAL_APP}/a.ts`)
   const blocked = await read($, `${WORK_APP}/a.ts`)
   expect(seen.ran).toEqual(['Read'])
   expect(JSON.stringify(blocked)).toContain(
-    'workspace-os blocked this: Work folders are off limits in a session with no profile. To use them, start the session from the Work environment.',
+    'workspace-os blocked this: Work folders are off limits in a session with no profile. To use them, start the session in a Work folder or from the Work environment.',
   )
   expect(seen.statuses).toEqual(['No profile · Work folders blocked'])
 })
@@ -153,7 +154,7 @@ test('refusals read as plain sentences: none repeats "so"', { options: ROOTS }, 
 
 test('refusals with no profile read as plain sentences too', { options: ROOTS }, async ($, on) => {
   engine(on, env(undefined))
-  await start($, PERSONAL_APP)
+  await start($, OUTSIDE)
   const none = JSON.stringify(await read($, `${WORK_APP}/a.ts`))
   expect(none).toContain('workspace-os blocked this:')
   expect(/\bso\b[\s\S]*\bso\b/.test(none)).toBe(false)
@@ -283,6 +284,28 @@ test('the profile name is forgiving about case and spaces; anything else is no p
   vars.WSOS_PROFILE = 'home'
   await start($, PERSONAL_APP)
   expect(seen.statuses).toEqual(['Work · Do it for me', 'No profile · Work folders blocked'])
+})
+
+test('with the variable unset, a session started inside a profile\'s folder is that profile', { options: ROOTS }, async ($, on) => {
+  const seen = engine(on, env(undefined))
+  await start($, `${WORK_APP}/Studio`)
+  await read($, `${WORK_APP}/a.ts`)
+  await read($, `${PERSONAL_APP}/a.ts`)
+  expect(seen.ran).toEqual(['Read'])
+  await start($, 'd:/clients/acme')
+  await start($, PERSONAL_APP)
+  expect(seen.statuses).toEqual(['Work · Do it for me', 'Work · Do it for me', 'Personal · Build with me'])
+})
+
+test('the folder never overrides a profile that is set, and a folder in neither profile has none', { options: ROOTS }, async ($, on) => {
+  const vars = env('personal')
+  const seen = engine(on, vars)
+  await start($, WORK_APP)
+  vars.WSOS_PROFILE = 'home'
+  await start($, WORK_APP)
+  vars.WSOS_PROFILE = undefined
+  await start($, OUTSIDE)
+  expect(seen.statuses).toEqual(['Personal · this folder belongs to the other profile', 'No profile · this is a Work folder', 'No profile · Work folders blocked'])
 })
 
 test('quiet: a session start opens no pane, raises no toast and sets one status', { options: ROOTS }, async ($, on) => {

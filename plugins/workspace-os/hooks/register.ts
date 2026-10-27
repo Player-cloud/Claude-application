@@ -13,7 +13,7 @@ const LABEL: Record<Profile, string> = { personal: 'Personal', work: 'Work' }
 // one sentence, and what to do only where there is something to do.
 const outsideProfile = (p: Profile) => `workspace-os blocked this: the path is outside the ${LABEL[p]} profile.`
 const NO_PROFILE =
-  'workspace-os blocked this: Work folders are off limits in a session with no profile. To use them, start the session from the Work environment.'
+  'workspace-os blocked this: Work folders are off limits in a session with no profile. To use them, start the session in a Work folder or from the Work environment.'
 const CHECK_FAILED = 'workspace-os blocked this: its folder check failed.'
 
 // Another plugin writing shared or taste memory. ~/.claude/CLAUDE.md is read by every
@@ -184,6 +184,14 @@ export const register: Register = (on, options) => {
     const raw = ((await $.env.get('WSOS_PROFILE')) ?? '').trim().toLowerCase()
     profile = raw === 'personal' || raw === 'work' ? raw : null
     cwd = resolve(String((e as { cwd?: string }).cwd ?? (await $.session.root())), '', '')
+    // With the variable unset, a session started inside one profile's folders is that
+    // profile: Claude Code reads a folder's own settings, not a parent's, so a mark on
+    // the profile folder doesn't reach projects inside it. The start folder is the
+    // user's choice, fixed for the session like the variable.
+    if (!raw) {
+      const owners = (Object.keys(roots) as Profile[]).filter(p => roots[p].some(root => isUnder(cwd, root)))
+      if (owners.length === 1) profile = owners[0]
+    }
     home = resolve((await $.env.get('USERPROFILE')) ?? (await $.env.get('HOME')) ?? cwd, '', '')
     sessionMode = null
     // The profile above is the safety part; a missing store or command only costs the
@@ -378,7 +386,7 @@ export const register: Register = (on, options) => {
 
   on('command.run', { command: 'mode' }, async ($, e) => {
     // Desktop already names the plugin above a command's output, so replies carry no prefix.
-    if (!profile) return { text: 'Modes need a profile. Start the session from the Personal or Work environment.' }
+    if (!profile) return { text: 'Modes need a profile. Start the session in a Personal or Work folder, or from that environment.' }
     const words = String(e.args ?? '').trim().split(/\s+/).filter(Boolean)
     const isDefault = words[0]?.toLowerCase() === 'default'
     const given = isDefault ? words.slice(1) : words

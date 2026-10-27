@@ -1,6 +1,7 @@
 import { expect, test } from 'claude-code/testing'
 
 const PERSONAL_APP = 'C:/Users/me/Code/personal/app'
+const OUTSIDE = 'C:/Users/me/Downloads/notes'
 const PV = 'C:/Users/me/Code/personal/Vault'
 const WV = 'C:/Users/me/Code/work/Vault'
 
@@ -80,7 +81,7 @@ function engine(on: any, profile: string | undefined, d = disk()): Seen {
   return seen
 }
 
-const start = ($: any) => $.session.start({ source: 'startup', cwd: PERSONAL_APP, surface: null, isInteractive: true } as never)
+const start = ($: any, cwd = PERSONAL_APP) => $.session.start({ source: 'startup', cwd, surface: null, isInteractive: true } as never)
 const call = async ($: any, name: string, input: object = {}) =>
   String(((await $.tool.call({ tool: `mcp__workspace-os__${name}`, ...input } as never)) as { result?: unknown }).result)
 const fileAt = (seen: Seen, p: string) => seen.d.files[Object.keys(seen.d.files).find(k => key(k) === key(p)) ?? '']
@@ -196,7 +197,7 @@ test('an injected "delete everything" note has nothing to work with', { options:
 
 test('with no profile there are no write tools and no vault to write to', { options: ROOTS }, async ($, on) => {
   const seen = engine(on, undefined)
-  await start($)
+  await start($, OUTSIDE)
   expect(seen.registered).toEqual([])
   expect(await call($, 'vault_draft', { title: 'x', text: 'y' })).toBe('This session has no profile, so it has no notes vault.')
   expect(seen.writes).toEqual([])
