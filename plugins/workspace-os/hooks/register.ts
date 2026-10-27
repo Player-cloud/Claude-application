@@ -52,12 +52,9 @@ async function logAction($: EngineInterface, dir: string | null, cwd: string, e:
     const what = raw.length > 160 ? `${raw.slice(0, 157)}...` : raw
     const at = new Date(await $.clock.now()).toISOString().slice(0, 16).replace('T', ' ')
     const file = `${dir}/_log/actions.md`
-    let text: string
-    try {
-      text = await $.fs.read(file)
-    } catch {
-      text = '# Approved actions\n\nWritten by Workspace OS: one line for each action that asked first, was approved and ran. Times are UTC.\n\n'
-    }
+    const text = (await $.fs.exists(file))
+      ? await $.fs.read(file)
+      : '# Approved actions\n\nWritten by Workspace OS: one line for each action that asked first, was approved and ran. Times are UTC.\n\n'
     await $.fs.write(file, `${text}- ${at} · ${why} · \`${what}\` · ${cwd}\n`)
   } catch {
     // A vault that can't be written only loses the log line.
