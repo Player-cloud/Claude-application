@@ -4,7 +4,7 @@ const ROOT = 'C:/Users/test/Downloads/my-app'
 const MONDAY_10AM = new Date(2026, 9, 5, 10, 0).getTime()
 const FRIDAY_4PM = new Date(2026, 9, 9, 16, 0).getTime()
 
-function engine(on: any, opts: { now: number; status?: string; mtimeMs?: number; docs?: string[]; confirm?: string; commands?: string[] }) {
+function engine(on: any, opts: { now: number; status?: string; mtimeMs?: number; docs?: string[]; confirm?: string; commands?: string[]; profile?: string }) {
   const store: Record<string, unknown> = {}
   const ran: string[] = []
   const asked: string[] = []
@@ -15,7 +15,8 @@ function engine(on: any, opts: { now: number; status?: string; mtimeMs?: number;
     return { result: { questions: e.questions, answers: { [q]: opts.confirm ?? 'Run it' } }, isError: false } as never
   })
   on('session.root', () => ({ value: ROOT }))
-  // The commands this session has; by default the two the nudges suggest, plus manager-update, which they no longer do.
+  on('env.get', (_$: any, e: any) => ({ value: e.name === 'WSOS_PROFILE' ? opts.profile : undefined }) as never)
+  // The commands this session has; by default all three the nudges suggest.
   on('command.list', () => ({ value: (opts.commands ?? ['ship-check', 'next-part', 'manager-update']).map(name => ({ name })) }) as never)
   on('clock.now', () => ({ value: opts.now }))
   on('clock.every', () => ({ value: undefined }) as never)
@@ -98,12 +99,45 @@ test('a clean project with a plan suggests the next part', async ($, on) => {
   expect(await ui.find({ text: /next part of the plan/ } as never)).toBeDefined()
 })
 
-test('no clock nudge: Friday afternoon suggests nothing, in any profile', async ($, on) => {
-  engine(on, { now: FRIDAY_4PM })
+test('a Work session on Friday afternoon suggests the manager update', async ($, on) => {
+  const { asked, ran } = engine(on, { now: FRIDAY_4PM, profile: 'work' })
   await $.session.start({ source: 'startup', cwd: ROOT, surface: null, isInteractive: true } as never)
   const ui = await band($, 'terminal')
-  expect(await ui.find({ text: /Friday|manager/ } as never)).toBeUndefined()
-  expect(await ui.find({ key: 'nudge-run' })).toBeUndefined()
+  expect(await ui.find({ text: /Friday afternoon/ } as never)).toBeDefined()
+  await ui.press({ key: 'nudge-run' })
+  expect(asked[0]).toContain('Nothing is sent')
+  expect(ran).toContain('manager-update')
+})
+
+for (const profile of ['personal', undefined]) {
+  test(`no Friday nudge in ${profile ? 'a Personal session' : 'a session with no profile'}`, async ($, on) => {
+    engine(on, { now: FRIDAY_4PM, profile })
+    await $.session.start({ source: 'startup', cwd: ROOT, surface: null, isInteractive: true } as never)
+    const ui = await band($, 'terminal')
+    expect(await ui.find({ text: /Friday|manager/ } as never)).toBeUndefined()
+    expect(await ui.find({ key: 'nudge-run' })).toBeUndefined()
+  })
+}
+
+test('the Friday nudge can be switched off for Work', { options: { workFridayUpdate: false } }, async ($, on) => {
+  engine(on, { now: FRIDAY_4PM, profile: 'work' })
+  await $.session.start({ source: 'startup', cwd: ROOT, surface: null, isInteractive: true } as never)
+  const ui = await band($, 'terminal')
+  expect(await ui.find({ text: /Friday afternoon/ } as never)).toBeUndefined()
+})
+
+test('a Work session before Friday 15:00 gets no update nudge', async ($, on) => {
+  engine(on, { now: MONDAY_10AM, profile: 'work' })
+  await $.session.start({ source: 'startup', cwd: ROOT, surface: null, isInteractive: true } as never)
+  const ui = await band($, 'terminal')
+  expect(await ui.find({ text: /Friday afternoon/ } as never)).toBeUndefined()
+})
+
+test('a Work session without /manager-update is not nudged', async ($, on) => {
+  engine(on, { now: FRIDAY_4PM, profile: 'work', commands: ['ship-check', 'next-part'] })
+  await $.session.start({ source: 'startup', cwd: ROOT, surface: null, isInteractive: true } as never)
+  const ui = await band($, 'terminal')
+  expect(await ui.find({ text: /Friday afternoon/ } as never)).toBeUndefined()
 })
 
 test('a command this session lacks is never suggested', async ($, on) => {
