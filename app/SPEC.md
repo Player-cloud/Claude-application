@@ -27,7 +27,7 @@ The app never calls Claude. A local app that talks to Claude needs a paid API ke
 
 ### Claude Code access (review finding 3)
 - If the CLI is found, changes use `claude plugin marketplace add|update`, `install [--config k=v]`, `enable`, `disable`, `update`, `uninstall --scope`, `configure --values-stdin` (verified in a throwaway home on Linux, 2026-10-27).
-- Claude Desktop doesn't put `claude` on PATH. Search order: saved path, PATH, `~\.local\bin\claude.exe`, `%APPDATA%\Claude\claude-code\<version>\claude.exe` (every version folder, newest first), `%APPDATA%\npm\node_modules\@anthropic-ai\claude-code\cli.js`. A candidate counts only if `--version` says "Claude Code". Step 1 takes a typed path.
+- Claude Desktop doesn't put `claude` on PATH. Search order: saved path, PATH, `~\.local\bin\claude.exe`, Claude Desktop's copies in `%LOCALAPPDATA%\Claude-Data\<id>\claude-code\<version>\<build>\claude.exe` (found on a real PC 2026-10-27) and `%APPDATA%\Claude\claude-code\<version>\claude.exe`, every version, newest first, `%APPDATA%\npm\node_modules\@anthropic-ai\claude-code\cli.js`. A candidate counts only if `--version` says "Claude Code". Step 1 takes a typed path.
 - If no CLI is found, the same changes are written into the backed-up `~\.claude\settings.json` keys: `extraKnownMarketplaces`, `enabledPlugins` (`false` instead of uninstall) and `pluginConfigs.<id>.options`. Claude Code installs them at its next start. **To verify on the laptop.** Version updates can't be done this way; the step says they need Claude Code.
 
 ### Change lists
@@ -76,7 +76,7 @@ Mac/Linux polish, auto-start, installing Node/Git/Claude for the person, Cowork 
 
 ## To verify on the laptop
 - Findings 3 and 16: whether Claude Code picks up plugins written straight into settings.json, and whether a mark at a profile root reaches sessions opened in a subfolder. If it doesn't, the plan is a per-project mark, or opening sessions at the root.
-- Where Claude Desktop keeps `claude.exe`.
+- ~~Where Claude Desktop keeps `claude.exe`~~: found 2026-10-27, `%LOCALAPPDATA%\Claude-Data\claude_<id>\claude-code\<version>\<build>\claude.exe`.
 
 ## Review log
 - 2026-10-27, goldfish review (`goldfish-review-2026-10-27.md`), joshua's picks: **fixed** 3, 4, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16 (documented; laptop check pending), 17, 18, 19, 20, 21, 22, 23, 24, 25, 26. **Skipped** 1, 2, 5 (they would undo the approved dashboard, the browser screens, and the conflict removal joshua asked for).

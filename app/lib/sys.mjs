@@ -4,7 +4,7 @@
 import { spawn } from 'node:child_process'
 import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs'
 import { homedir } from 'node:os'
-import { join, delimiter, dirname } from 'node:path'
+import { basename, join, delimiter, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 export const isWin = process.platform === 'win32'
@@ -65,6 +65,35 @@ function versionDirs(root) {
     .map((n) => join(root, n))
 }
 
+// Claude Desktop's own copies: <data>\claude-code\<version>\[<build>\]claude.exe, newest version first.
+// Seen on Windows 2026-10-27: %LOCALAPPDATA%\Claude-Data\claude_<id>\claude-code\2.1.308\<build>\claude.exe.
+export function desktopCopies(roots) {
+  const found = []
+  for (const root of roots) {
+    for (const v of versionDirs(root)) {
+      const version = basename(v)
+      if (existsSync(join(v, 'claude.exe'))) found.push({ version, path: join(v, 'claude.exe') })
+      try {
+        for (const b of readdirSync(v, { withFileTypes: true })) {
+          if (b.isDirectory() && existsSync(join(v, b.name, 'claude.exe'))) found.push({ version, path: join(v, b.name, 'claude.exe') })
+        }
+      } catch {}
+    }
+  }
+  return found.sort((a, b) => b.version.localeCompare(a.version, undefined, { numeric: true })).map((f) => f.path)
+}
+
+function desktopRoots() {
+  const appData = process.env.APPDATA || join(homedir(), 'AppData', 'Roaming')
+  const local = process.env.LOCALAPPDATA || join(homedir(), 'AppData', 'Local')
+  const roots = [join(appData, 'Claude', 'claude-code')]
+  const data = join(local, 'Claude-Data')
+  try {
+    for (const d of readdirSync(data, { withFileTypes: true })) if (d.isDirectory()) roots.push(join(data, d.name, 'claude-code'))
+  } catch {}
+  return roots
+}
+
 // Where Claude Code's command line might be. Claude Desktop keeps its own copy and does not put it on PATH.
 export function claudeCandidates(saved) {
   const list = []
@@ -74,7 +103,7 @@ export function claudeCandidates(saved) {
   if (isWin) {
     const appData = process.env.APPDATA || join(homedir(), 'AppData', 'Roaming')
     list.push(join(homedir(), '.local', 'bin', 'claude.exe'))
-    for (const d of versionDirs(join(appData, 'Claude', 'claude-code'))) list.push(join(d, 'claude.exe'))
+    list.push(...desktopCopies(desktopRoots()))
     list.push(join(appData, 'npm', 'node_modules', '@anthropic-ai', 'claude-code', 'cli.js'))
   } else {
     list.push(join(homedir(), '.local', 'bin', 'claude'))

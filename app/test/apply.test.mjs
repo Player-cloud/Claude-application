@@ -83,3 +83,17 @@ test('arguments reach programs intact: spaces, & and % are not interpreted by a 
   assert.equal(r.code, 0)
   assert.deepEqual(JSON.parse(r.stdout), tricky)
 })
+
+test('finds Claude Desktop\'s copies of Claude Code, newest version first', async () => {
+  const { desktopCopies } = await import('../lib/sys.mjs')
+  const root = join(tmp(), 'claude_abc', 'claude-code')
+  for (const [v, b] of [['2.1.295', 'd2e2'], ['2.1.308', 'c17a'], ['2.1.40', '']]) {
+    mkdirSync(join(root, v, b), { recursive: true })
+    writeFileSync(join(root, v, b, 'claude.exe'), '')
+  }
+  assert.deepEqual(desktopCopies([root, join(tmp(), 'missing')]), [
+    join(root, '2.1.308', 'c17a', 'claude.exe'),
+    join(root, '2.1.295', 'd2e2', 'claude.exe'),
+    join(root, '2.1.40', 'claude.exe'),
+  ])
+})
