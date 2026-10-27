@@ -75,7 +75,7 @@ Only true/false plugin options travel; folder options are asked again. Skipped b
 Mac/Linux polish, auto-start, installing Node/Git/Claude for the person, Cowork folder connections, video tools (ffmpeg/whisper), deleting old folders, running the toolkit's own test suites (developers run those in the repo).
 
 ## To verify on the laptop
-- Findings 3 and 16: whether Claude Code picks up plugins written straight into settings.json, and whether a mark at a profile root reaches sessions opened in a subfolder. If it doesn't, the plan is a per-project mark, or opening sessions at the root. Result (2026-10-27, Windows): it doesn't, because Claude Code reads only the start folder's own settings. Fixed in workspace-os 0.3.1: with `WSOS_PROFILE` unset, a session started inside exactly one profile's folders takes that profile.
+- Findings 3 and 16: whether Claude Code picks up plugins written straight into settings.json, and whether a mark at a profile root reaches sessions opened in a subfolder. If it doesn't, the plan is a per-project mark, or opening sessions at the root. Result (2026-10-27, Windows): it doesn't, because Claude Code reads only the start folder's own settings. Fixed in workspace-os 0.5.1: with `WSOS_PROFILE` unset, a session started inside exactly one profile's folders takes that profile.
 - ~~Where Claude Desktop keeps `claude.exe`~~: found 2026-10-27, `%LOCALAPPDATA%\Claude-Data\claude_<id>\claude-code\<version>\<build>\claude.exe`.
 
 ## Review log

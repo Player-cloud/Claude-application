@@ -1,6 +1,6 @@
 {
   "name": "control-center",
-  "version": "1.3.0",
+  "version": "1.4.0",
   "description": "The Claude Code Control Center: one pane over every skill, plugin, workflow and system module, with live status and one-click runs through Claude Code's own commands.",
   "author": {
     "name": "Joshua Oduore"

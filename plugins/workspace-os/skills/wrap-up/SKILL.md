@@ -16,6 +16,8 @@ Write four short sections from this session only, in plain sentences:
 - **Still open** — questions waiting on the user, and work started but not finished (name the file, branch or pull request).
 - **Next move** — the one thing to do first next time.
 
+If this session built something from a plan in `docs/designs/`, add one line under **Next move** offering the `drift-check` skill for that plan.
+
 Keep it under about fifteen lines. Don't pad empty sections; write "None" instead. Leave out secrets, keys and anything from the other profile.
 
 ## 2. Offer to keep it

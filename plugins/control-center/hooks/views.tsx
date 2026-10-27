@@ -500,7 +500,7 @@ function Grouped(E: E, m: Model, a: Actions, key: string, caps: Capability[], or
   )
 }
 
-const OUTCOME_ORDER = ['Build', 'Debug', 'Review', 'Test', 'Secure', 'Ship', 'Report', 'Design', 'Data', 'Auth', 'Email', 'Brief', 'Docs', 'Claude Code']
+const OUTCOME_ORDER = ['Plan', 'Build', 'Debug', 'Review', 'Test', 'Secure', 'Ship', 'Report', 'Design', 'Data', 'Auth', 'Email', 'Brief', 'Docs', 'Claude Code']
 
 function ActionsPage(E: E, m: Model, a: Actions) {
   const outcomes = CAPABILITIES.filter(c => c.source !== 'toolkit' && c.id !== 'copy')
