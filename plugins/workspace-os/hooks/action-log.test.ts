@@ -1,6 +1,7 @@
 import { expect, test } from 'claude-code/testing'
 
 const PERSONAL_APP = 'C:/Users/me/Code/personal/app'
+const OUTSIDE = 'C:/Users/me/Downloads/notes'
 const ROOTS = {
   personalRoots: 'C:\\Users\\me\\Code\\personal',
   workRoots: 'C:\\Users\\me\\Code\\work',
@@ -48,7 +49,7 @@ function engine(on: any, profile: string | undefined, opts: { failing?: boolean;
   return seen
 }
 
-const start = ($: any) => $.session.start({ source: 'startup', cwd: PERSONAL_APP, surface: null, isInteractive: true } as never)
+const start = ($: any, cwd = PERSONAL_APP) => $.session.start({ source: 'startup', cwd, surface: null, isInteractive: true } as never)
 
 test('an approved push is logged in the vault, one line each; ordinary commands are not', { options: ROOTS }, async ($, on) => {
   const seen = engine(on, 'personal')
@@ -82,7 +83,7 @@ test('an action that fails leaves no line', { options: ROOTS }, async ($, on) =>
 
 test('no profile means no vault, so nothing is logged', { options: ROOTS }, async ($, on) => {
   const seen = engine(on, undefined)
-  await start($)
+  await start($, OUTSIDE)
   await $.tool.call({ tool: 'Bash', command: 'git push' } as never)
   expect(seen.ran).toEqual(['Bash'])
   expect(Object.keys(seen.files)).toEqual([])
